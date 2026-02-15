@@ -1,0 +1,5 @@
+run_id,model,psnr_y,ssim_y,tpsnr,diff_energy,ms_per_frame
+run_xxxx,single_frame_sr,0,0,0,0,0
+run_xxxx,temporal_vsr_tiny,0,0,0,0,0
+run_xxxx,temporal_vsr_small,0,0,0,0,0
+run_xxxx,temporal_vsr_full,0,0,0,0,0

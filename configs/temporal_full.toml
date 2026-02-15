@@ -1,0 +1,39 @@
+[project]
+name = "mini-dlss"
+run_name = "temporal_vsr_5f_full_2x"
+seed = 42
+scale = 2
+device = "cuda"
+
+[dataset]
+train_hr_root = ""
+train_lr_root = ""
+val_hr_root = ""
+val_lr_root = ""
+train_manifest = "data/splits/vimeo90k_train.txt"
+val_manifest = "data/splits/reds_val.txt"
+num_frames = 5
+generate_lr_on_the_fly = true
+crop_size_hr = 160
+
+[train]
+max_steps = 300000
+batch_size = 2
+num_workers = 4
+lr = 0.0002
+log_interval = 100
+val_interval = 5000
+checkpoint_interval = 5000
+resume = ""
+loss = "l1+perceptual"
+perceptual_weight = 0.05
+
+[eval]
+max_batches = 0
+save_examples = 4
+output_dir = "results"
+
+[model]
+name = "temporal"
+base_channels = 64
+num_blocks = 10
