@@ -14,6 +14,9 @@ Mini-DLSS (DLSS-inspired, not NVIDIA DLSS): temporal video super-resolution trai
 - Train: Vimeo-90K Septuplets.
 - Eval/demo: REDS validation split (scene-disjoint from training data).
 - Split rule: no overlapping scenes between train/val/test subsets.
+- Local default setup in this repo uses merged Kaggle subsets (`vimeo-90k-3` + `vimeo-90k-4`) via:
+  - sequence root: `data/raw/vimeo90k_union/sequence`
+  - manifests: `data/splits/vimeo90k_union_{train,val,test}.txt`
 
 ## 3) Baselines and Model Path
 
@@ -103,6 +106,12 @@ Week 2 dataset check (clip counts + LR/HR alignment + temporal windows):
 
 ```bash
 python data/scripts/freeze_vimeo_splits.py --vimeo-root /path/to/vimeo90k
+python data/scripts/freeze_vimeo_union_splits.py \
+  --vimeo-a data/raw/kagglehub/datasets/wangsally/vimeo-90k-3/versions/1 \
+  --vimeo-b data/raw/kagglehub/datasets/wangsally/vimeo-90k-4/versions/1
+python data/scripts/build_vimeo_union_root.py \
+  --seq-a data/raw/kagglehub/datasets/wangsally/vimeo-90k-3/versions/1/sequence \
+  --seq-b data/raw/kagglehub/datasets/wangsally/vimeo-90k-4/versions/1/sequence
 
 python data/scripts/check_dataset.py \
   --hr-root /path/to/reds/hr \
@@ -110,6 +119,12 @@ python data/scripts/check_dataset.py \
   --manifest data/splits/reds_val.txt \
   --num-frames 5 \
   --scale 2
+```
+
+If REDS is not available yet, build a local REDS-style val set from Vimeo for pipeline validation:
+
+```bash
+python data/scripts/create_reds_val_from_vimeo.py
 ```
 
 Week 3 baseline eval (writes markdown table + example media):

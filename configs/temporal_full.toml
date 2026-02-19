@@ -6,11 +6,11 @@ scale = 2
 device = "cuda"
 
 [dataset]
-train_hr_root = ""
+train_hr_root = "data/raw/vimeo90k_union/sequence"
 train_lr_root = ""
-val_hr_root = ""
-val_lr_root = ""
-train_manifest = "data/splits/vimeo90k_train.txt"
+val_hr_root = "data/raw/reds/val_sharp"
+val_lr_root = "data/raw/reds/val_sharp_bicubic/X2"
+train_manifest = "data/splits/vimeo90k_union_train.txt"
 val_manifest = "data/splits/reds_val.txt"
 num_frames = 5
 generate_lr_on_the_fly = true
