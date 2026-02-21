@@ -48,6 +48,10 @@ def _bicubic_center(lr: torch.Tensor, hr_size: Tuple[int, int]) -> torch.Tensor:
     center = lr[:, lr.shape[1] // 2]
     return F.interpolate(center, size=hr_size, mode="bicubic", align_corners=False)
 
+def _nearest_center(lr: torch.Tensor, hr_size: Tuple[int, int]) -> torch.Tensor:
+    center = lr[:, lr.shape[1] // 2]
+    return F.interpolate(center, size=hr_size, mode="nearest")
+
 
 def _compose_strip(lr_up: torch.Tensor, bicubic: torch.Tensor, pred: torch.Tensor, hr: torch.Tensor) -> np.ndarray:
     panels = [_to_uint8_hwc(x) for x in [lr_up, bicubic, pred, hr]]
@@ -142,6 +146,7 @@ def main() -> None:
 
         hr_size = (hr.shape[-2], hr.shape[-1])
         bicubic = _bicubic_center(lr, hr_size).clamp(0.0, 1.0)
+        lr_up = _nearest_center(lr, hr_size).clamp(0.0, 1.0)
 
         if use_bicubic:
             pred = bicubic
@@ -158,8 +163,12 @@ def main() -> None:
         frame_name = batch["frame_name"][0]
         temporal_buckets[seq_id].append((frame_name, pred[0].detach().cpu()))
 
-        lr_up = bicubic[0].detach().cpu()
-        strip = _compose_strip(lr_up, bicubic[0].detach().cpu(), pred[0].detach().cpu(), hr[0].detach().cpu())
+        strip = _compose_strip(
+            lr_up[0].detach().cpu(),
+            bicubic[0].detach().cpu(),
+            pred[0].detach().cpu(),
+            hr[0].detach().cpu(),
+        )
 
         if idx < args.save_images:
             from PIL import Image
