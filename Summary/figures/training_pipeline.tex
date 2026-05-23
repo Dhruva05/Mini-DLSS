@@ -1,0 +1,90 @@
+% Requires: \usepackage{tikz}
+% Requires: \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit}
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    font=\small,
+    node distance=0.75cm and 1.0cm,
+    stage/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!70,
+        very thick,
+        align=center,
+        minimum width=3.0cm,
+        minimum height=0.95cm,
+        inner sep=5pt
+    },
+    source/.style={stage, fill=blue!8},
+    transform/.style={stage, fill=green!8},
+    train/.style={stage, fill=orange!12},
+    output/.style={stage, fill=gray!10},
+    decision/.style={
+        diamond,
+        aspect=2.2,
+        draw=black!70,
+        very thick,
+        align=center,
+        fill=purple!8,
+        inner sep=1pt,
+        minimum width=2.9cm,
+        minimum height=1.0cm
+    },
+    group/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!45,
+        dashed,
+        inner sep=7pt
+    },
+    arrow/.style={-{Stealth[length=2.5mm]}, very thick, draw=black!70},
+    softarrow/.style={-{Stealth[length=2.2mm]}, thick, draw=black!45}
+]
+
+\node[source] (cfg) {\texttt{configs/*.toml}\\scale=2, seed,\\paths, frames, model};
+\node[source, below=of cfg] (override) {JSON override\\optional runtime\\path and train changes};
+\node[source, below=of override] (manifest) {\texttt{data/splits/*.txt}\\sequence IDs for\\train and val};
+
+\node[transform, right=1.35cm of override] (dataset) {\texttt{MultiFrameSRDataset}\\load HR/LR sequence\\directories};
+\node[transform, above=of dataset] (window) {odd \texttt{num\_frames}\\radius = T // 2\\center target frame};
+\node[transform, below=of dataset] (cropaug) {training transforms\\HR-aligned crop\\flip H, V, time};
+
+\node[transform, right=1.35cm of dataset] (loader) {\texttt{DataLoader}\\batched \texttt{lr}: [B,T,3,h,w]\\\texttt{hr}: [B,3,H,W]};
+\node[train, above=of loader] (model) {\texttt{build\_model}\\\texttt{BasicVSRMini}\\or baseline};
+\node[train, below=of loader] (loss) {loss\\$L_1$ plus optional\\perceptual term};
+
+\node[train, right=1.35cm of loader] (step) {train step\\forward, backward,\\Adam update};
+\node[decision, above=of step] (valgate) {validation\\interval or\\final step?};
+\node[output, below=of step] (logs) {\texttt{train\_log.jsonl}\\loss, elapsed,\\samples seen};
+
+\node[output, right=1.35cm of valgate] (val) {validation loop\\image metrics on\\center predictions};
+\node[output, right=1.35cm of step] (ckpt) {\texttt{results/runs/...}\\\texttt{best.pt}, \texttt{latest.pt},\\step checkpoints};
+\node[output, right=1.35cm of logs] (vallog) {\texttt{val\_metrics.jsonl}\\PSNR and SSIM\\per validation step};
+
+\node[group, fit=(cfg)(override)(manifest), label={[font=\small\bfseries]above:Run definition}] {};
+\node[group, fit=(window)(dataset)(cropaug), label={[font=\small\bfseries]above:Temporal sample builder}] {};
+\node[group, fit=(model)(loader)(loss)(step), label={[font=\small\bfseries]above:Optimization loop}] {};
+\node[group, fit=(val)(ckpt)(vallog), label={[font=\small\bfseries]above:Artifacts}] {};
+
+\draw[arrow] (cfg) -- (dataset);
+\draw[softarrow] (override) -- (cfg);
+\draw[arrow] (manifest) -- (dataset);
+\draw[arrow] (dataset) -- (window);
+\draw[arrow] (dataset) -- (cropaug);
+\draw[arrow] (dataset) -- (loader);
+\draw[arrow] (loader) -- (step);
+\draw[arrow] (model) -- (step);
+\draw[arrow] (loss) -- (step);
+\draw[arrow] (step) -- (logs);
+\draw[arrow] (step) -- (valgate);
+\draw[arrow] (valgate) -- node[above, font=\scriptsize] {yes} (val);
+\draw[arrow] (val) -- (ckpt);
+\draw[arrow] (val) -- (vallog);
+\draw[softarrow] (valgate) to[bend left=18] node[below, font=\scriptsize] {no: next batch} (loader);
+
+\end{tikzpicture}
+}
+\caption{Training pipeline implemented by \texttt{train.py}. Configs and manifests instantiate temporal windows, the model predicts the center HR frame, and validation controls checkpoint and metric artifacts.}
+\label{fig:training_pipeline}
+\end{figure}

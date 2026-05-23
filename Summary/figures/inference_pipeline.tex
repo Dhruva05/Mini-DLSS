@@ -1,0 +1,75 @@
+% Requires: \usepackage{tikz}
+% Requires: \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit}
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    font=\small,
+    node distance=0.7cm and 1.0cm,
+    box/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!70,
+        very thick,
+        align=center,
+        minimum width=2.95cm,
+        minimum height=0.9cm,
+        inner sep=5pt
+    },
+    script/.style={box, fill=green!8},
+    data/.style={box, fill=blue!8},
+    model/.style={box, fill=orange!12},
+    artifact/.style={box, fill=gray!10},
+    group/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!45,
+        dashed,
+        inner sep=7pt
+    },
+    arrow/.style={-{Stealth[length=2.5mm]}, very thick, draw=black!70},
+    softarrow/.style={-{Stealth[length=2.2mm]}, thick, draw=black!45}
+]
+
+\node[data] (cfg) {\texttt{configs/*.toml}\\scale, \texttt{num\_frames},\\model settings};
+\node[data, below=of cfg] (ckpt) {\texttt{best.pt}\\or explicit\\checkpoint};
+\node[model, right=1.25cm of cfg] (model) {\texttt{build\_model}\\load weights\\set \texttt{eval()}};
+
+\node[script, below=1.25cm of model] (evalpy) {\texttt{eval.py}\\dataset inference\\or bicubic mode};
+\node[data, left=1.25cm of evalpy] (valdata) {REDS/Vimeo val\\HR root, LR root,\\manifest};
+\node[artifact, right=1.25cm of evalpy] (evalout) {metrics and media\\markdown, JSON,\\PNG strips, MP4};
+
+\node[script, below=1.35cm of evalpy] (demopy) {\texttt{demo\_video.py}\\LR MP4 inference};
+\node[data, left=1.25cm of demopy] (mp4in) {input LR MP4\\RGB frames\\edge-padded windows};
+\node[artifact, right=1.25cm of demopy] (mp4out) {output SR MP4\\reported elapsed\\and ms/frame};
+
+\node[script, below=1.35cm of demopy] (onnx) {\texttt{export\_onnx.py}\\dummy LR tensor\\dynamic spatial axes};
+\node[data, left=1.25cm of onnx] (dummy) {[1,T,3,h,w]\\sample export\\height and width};
+\node[artifact, right=1.25cm of onnx] (onnxout) {\texttt{mini\_dlss.onnx}\\input \texttt{lr\_frames}\\output \texttt{sr\_frame}};
+
+\node[group, fit=(cfg)(ckpt)(model), label={[font=\small\bfseries]above:Shared model setup}] {};
+\node[group, fit=(valdata)(evalpy)(evalout), label={[font=\small\bfseries]above:Evaluation path}] {};
+\node[group, fit=(mp4in)(demopy)(mp4out), label={[font=\small\bfseries]above:Demo path}] {};
+\node[group, fit=(dummy)(onnx)(onnxout), label={[font=\small\bfseries]above:Export path}] {};
+
+\draw[arrow] (cfg) -- (model);
+\draw[arrow] (ckpt) -- (model);
+\draw[arrow] (model) -- (evalpy);
+\draw[arrow] (model) -- (demopy);
+\draw[arrow] (model) -- (onnx);
+
+\draw[arrow] (valdata) -- (evalpy);
+\draw[arrow] (evalpy) -- (evalout);
+\draw[arrow] (mp4in) -- (demopy);
+\draw[arrow] (demopy) -- (mp4out);
+\draw[arrow] (dummy) -- (onnx);
+\draw[arrow] (onnx) -- (onnxout);
+
+\draw[softarrow] (evalpy) to[bend left=16] node[above, font=\scriptsize] {PSNR, SSIM, temporal metrics} (evalout);
+\draw[softarrow] (demopy) to[bend left=15] node[above, font=\scriptsize] {model or bicubic} (mp4out);
+
+\end{tikzpicture}
+}
+\caption{Inference and deployment paths. The same config-driven model setup feeds validation evaluation, MP4 demo generation, and ONNX export.}
+\label{fig:inference_pipeline}
+\end{figure}

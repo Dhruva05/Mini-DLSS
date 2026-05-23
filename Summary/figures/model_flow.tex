@@ -1,0 +1,104 @@
+% Requires: \usepackage{tikz}
+% Requires: \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit}
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    font=\small,
+    node distance=0.75cm and 0.95cm,
+    tensor/.style={
+        trapezium,
+        trapezium left angle=72,
+        trapezium right angle=108,
+        draw=black!70,
+        very thick,
+        align=center,
+        fill=blue!8,
+        minimum width=2.65cm,
+        minimum height=0.85cm,
+        inner sep=5pt
+    },
+    op/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!70,
+        very thick,
+        align=center,
+        fill=green!8,
+        minimum width=2.8cm,
+        minimum height=0.9cm,
+        inner sep=5pt
+    },
+    state/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!70,
+        very thick,
+        align=center,
+        fill=orange!12,
+        minimum width=2.75cm,
+        minimum height=0.9cm,
+        inner sep=5pt
+    },
+    artifact/.style={
+        trapezium,
+        trapezium left angle=72,
+        trapezium right angle=108,
+        draw=black!70,
+        very thick,
+        align=center,
+        fill=gray!10,
+        minimum width=2.65cm,
+        minimum height=0.85cm,
+        inner sep=5pt
+    },
+    group/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!45,
+        dashed,
+        inner sep=7pt
+    },
+    arrow/.style={-{Stealth[length=2.5mm]}, very thick, draw=black!70},
+    softarrow/.style={-{Stealth[length=2.2mm]}, thick, draw=black!45}
+]
+
+\node[tensor] (input) {LR window\\\texttt{x}: [B,T,3,h,w]};
+\node[op, right=1.2cm of input] (split) {per-frame slice\\\texttt{x[:, i]}};
+\node[op, right=1.2cm of split] (feat) {feature extractor\\Conv, ReLU,\\ResidualBlocks};
+\node[tensor, right=1.2cm of feat] (feats) {features\\\texttt{feats[0..T-1]}\\{}[B,C,h,w]};
+
+\node[state, below left=1.15cm and 0.25cm of feats] (bwd) {backward ConvGRU\\iterate T-1 to 0\\store \texttt{bwd\_states}};
+\node[state, below right=1.15cm and 0.25cm of feats] (fwd) {forward ConvGRU\\iterate 0 to T-1\\store \texttt{fwd\_states}};
+
+\node[op, below=1.15cm of feats] (center) {center index\\\texttt{T // 2}};
+\node[op, below=of center] (concat) {concatenate center\\feature, fwd state,\\bwd state};
+\node[op, below=of concat] (fusion) {fusion block\\1x1 Conv, ReLU,\\ResidualBlocks};
+\node[op, below=of fusion] (upsample) {upsampler\\Conv, PixelShuffle(2x),\\Conv to RGB};
+\node[artifact, below=of upsample] (output) {SR center frame\\{}[B,3,H,W]};
+
+\node[group, fit=(input)(split)(feat)(feats), label={[font=\small\bfseries]above:Shared feature extraction}] {};
+\node[group, fit=(bwd)(fwd)(center)(concat), label={[font=\small\bfseries]right:Bidirectional temporal propagation}] {};
+\node[group, fit=(fusion)(upsample)(output), label={[font=\small\bfseries]right:Reconstruction head}] {};
+
+\draw[arrow] (input) -- (split);
+\draw[arrow] (split) -- (feat);
+\draw[arrow] (feat) -- (feats);
+\draw[arrow] (feats) -- (bwd);
+\draw[arrow] (feats) -- (fwd);
+\draw[arrow] (feats) -- (center);
+\draw[arrow] (bwd) -- (concat);
+\draw[arrow] (fwd) -- (concat);
+\draw[arrow] (center) -- (concat);
+\draw[arrow] (concat) -- node[right, font=\scriptsize] {channels = 3C} (fusion);
+\draw[arrow] (fusion) -- (upsample);
+\draw[arrow] (upsample) -- (output);
+
+\draw[softarrow] (bwd) to[bend right=18] node[left, font=\scriptsize] {state at center} (concat);
+\draw[softarrow] (fwd) to[bend left=18] node[right, font=\scriptsize] {state at center} (concat);
+
+\end{tikzpicture}
+}
+\caption{\texttt{BasicVSRMini} model flow. Each LR temporal window is encoded frame by frame, propagated in both directions with ConvGRU cells, fused at the center frame, and upsampled with PixelShuffle.}
+\label{fig:model_flow}
+\end{figure}

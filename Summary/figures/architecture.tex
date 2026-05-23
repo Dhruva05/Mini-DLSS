@@ -1,0 +1,78 @@
+% Requires: \usepackage{tikz}
+% Requires: \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit}
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    font=\small,
+    node distance=0.75cm and 1.05cm,
+    box/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!70,
+        very thick,
+        align=center,
+        minimum width=2.65cm,
+        minimum height=0.9cm,
+        inner sep=5pt
+    },
+    data/.style={box, fill=blue!8},
+    proc/.style={box, fill=green!8},
+    model/.style={box, fill=orange!12},
+    metric/.style={box, fill=purple!8},
+    io/.style={box, fill=gray!10},
+    group/.style={
+        rectangle,
+        rounded corners=2pt,
+        draw=black!45,
+        dashed,
+        inner sep=7pt
+    },
+    arrow/.style={-{Stealth[length=2.5mm]}, very thick, draw=black!70},
+    softarrow/.style={-{Stealth[length=2.3mm]}, thick, draw=black!45}
+]
+
+\node[io] (configs) {\texttt{configs/}\\TOML project, dataset,\\train, eval, model};
+\node[data, below=of configs] (splits) {\texttt{data/splits/}\\manifests for\\Vimeo and REDS};
+\node[data, below=of splits] (dataset) {\texttt{data/dataset.py}\\\texttt{MultiFrameSRDataset}\\temporal center windows};
+
+\node[proc, right=1.6cm of configs] (utils) {\texttt{utils/}\\load config, seed,\\checkpoints, tables};
+\node[proc, below=of utils] (train) {\texttt{train.py}\\DataLoader, Adam,\\loss, validation};
+\node[proc, below=of train] (eval) {\texttt{eval.py}\\quality metrics,\\examples, videos};
+
+\node[model, right=1.6cm of train] (factory) {\texttt{models/factory.py}\\select \texttt{single\_frame}\\or temporal model};
+\node[model, above=of factory] (single) {\texttt{SingleFrameSR}\\single-frame baseline};
+\node[model, below=of factory] (basic) {\texttt{BasicVSRMini}\\features, bidirectional\\ConvGRU, PixelShuffle};
+
+\node[metric, right=1.6cm of eval] (metrics) {\texttt{metrics/}\\PSNR, SSIM,\\temporal stability};
+\node[io, above=of metrics] (results) {\texttt{results/}\\logs, checkpoints,\\tables, media};
+\node[io, below=of metrics] (deploy) {\texttt{export\_onnx.py}\\\texttt{demo\_video.py}\\ONNX and MP4 demo};
+
+\node[group, fit=(configs)(splits)(dataset), label={[font=\small\bfseries]above:Configuration and data}] (gdata) {};
+\node[group, fit=(utils)(train)(eval), label={[font=\small\bfseries]above:Execution scripts}] (gexec) {};
+\node[group, fit=(single)(factory)(basic), label={[font=\small\bfseries]above:Model package}] (gmodel) {};
+\node[group, fit=(results)(metrics)(deploy), label={[font=\small\bfseries]above:Evaluation and outputs}] (gout) {};
+
+\draw[arrow] (configs) -- (train);
+\draw[arrow] (splits) -- (dataset);
+\draw[arrow] (dataset) -- (train);
+\draw[arrow] (dataset) -- (eval);
+\draw[arrow] (utils) -- (train);
+\draw[arrow] (utils) -- (eval);
+\draw[arrow] (train) -- (factory);
+\draw[arrow] (factory) -- (single);
+\draw[arrow] (factory) -- (basic);
+\draw[arrow] (basic) -- (eval);
+\draw[arrow] (single) -- (eval);
+\draw[arrow] (eval) -- (metrics);
+\draw[arrow] (train) -- (results);
+\draw[arrow] (metrics) -- (results);
+\draw[arrow] (basic) -- (deploy);
+\draw[softarrow] (utils) to[bend left=15] (deploy);
+\draw[softarrow] (configs) to[bend left=12] (deploy);
+
+\end{tikzpicture}
+}
+\caption{Mini-DLSS repository architecture. Config files drive data loading, model construction, training, evaluation, and deployment scripts while shared utilities handle reproducibility and artifacts.}
+\label{fig:architecture}
+\end{figure}
