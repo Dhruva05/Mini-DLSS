@@ -30,9 +30,11 @@ Recruiter/demo artifacts:
 
 - Comparison videos: `results/final/videos/final_temporal_vsr_5f_small_2x/`
 - Labeled 10-second comparison: `results/final/videos/final_temporal_vsr_5f_small_2x/all_val_comparison_10s_labeled.mp4`
+- Final training logs: `results/runs/temporal_vsr_5f_small_2x/train_log.jsonl`, `results/runs/temporal_vsr_5f_small_2x/val_metrics.jsonl`
 - Fixed 10-second PyTorch CPU demo: `results/final/demo/temporal_vsr_5f_small_2x_10s.mp4` (`34.941 ms/frame` measured by `demo_video.py`)
 - ONNX export: `results/onnx/temporal_vsr_5f_small_2x.onnx`
-- ONNX Runtime latency: not yet benchmarked
+- ONNX Runtime CPU latency: `21.589 ms/frame` on the same 240-frame clip (`results/final/tables/onnxruntime_temporal_vsr_5f_small_2x_latency.json`)
+- Target-relative temporal audit: `results/audit_updated_metrics/tables/target_relative_temporal_comparison.md`
 
 ## 1) Scope
 
@@ -71,6 +73,7 @@ Recruiter/demo artifacts:
 - Temporal stability metric:
   - Preferred: flow-warped temporal PSNR (`tPSNR`) between consecutive outputs.
   - Fallback: frame-to-frame difference energy in low-texture regions.
+  - Additional target-relative diagnostics after rerunning `eval.py`: `target_diff_energy`, `diff_energy_delta`, `temporal_error_energy`, `target_tpsnr`, and `tpsnr_delta`.
 - Report set:
   - Local REDS-style validation aggregate metrics.
   - Curated qualitative clips (side-by-side LR/Bicubic/Single-frame/Temporal/GT).
@@ -197,11 +200,35 @@ python eval.py \
   --output-dir results/final
 ```
 
+Budget-matched single-frame baseline:
+
+```bash
+bash scripts/run_budget_matched_single_frame.sh configs/single_frame_budget_matched.toml cuda
+```
+
+This trains the single-frame model with `num_frames=1` and evaluates it with a 5-frame center-window override so the reported sample set matches the temporal model.
+
 Week 6 planned ablation tracking:
 
 ```bash
-# Fill run rows in results/tables/experiment_tracker_template.md
-# Then copy summary into results/tables/ablation_table.md
+bash scripts/run_ablations.sh \
+  data/raw/vimeo90k_union/sequence \
+  data/raw/reds/val_sharp \
+  data/raw/reds/val_sharp_bicubic/X2 \
+  50000 \
+  cuda
+```
+
+Official REDS evaluation, after official HR/LR roots and manifest are available locally:
+
+```bash
+bash scripts/eval_official_reds.sh \
+  /path/to/official/REDS/val_sharp \
+  /path/to/official/REDS/val_sharp_bicubic/X2 \
+  /path/to/official_reds_val.txt \
+  results/runs/temporal_vsr_5f_small_2x/checkpoints/best.pt \
+  results/official_reds \
+  cpu
 ```
 
 Week 7 ONNX export:
@@ -211,6 +238,16 @@ python export_onnx.py \
   --config configs/temporal_small.toml \
   --checkpoint results/runs/temporal_vsr_5f_small_2x/checkpoints/best.pt \
   --output results/onnx/temporal_vsr_5f_small_2x.onnx
+```
+
+Week 7 ONNX Runtime latency benchmark:
+
+```bash
+python bench_onnxruntime.py \
+  --onnx results/onnx/temporal_vsr_5f_small_2x.onnx \
+  --input results/week3/latency_input_10s_lr.mp4 \
+  --config configs/temporal_small.toml \
+  --output-json results/final/tables/onnxruntime_temporal_vsr_5f_small_2x_latency.json
 ```
 
 Week 7 PyTorch CPU demo inference on fixed 10-second LR mp4:

@@ -1,0 +1,13 @@
+| metric | value |
+| --- | --- |
+| diff_energy | 0.0183 |
+| diff_energy_delta | -0.0062 |
+| psnr_rgb | 28.3284 |
+| psnr_y | 32.3755 |
+| ssim_rgb | 0.7745 |
+| ssim_y | 0.8807 |
+| target_diff_energy | 0.0245 |
+| target_tpsnr | 34.6270 |
+| temporal_error_energy | 0.0143 |
+| tpsnr | 33.8817 |
+| tpsnr_delta | -0.7453 |

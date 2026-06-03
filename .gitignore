@@ -6,7 +6,11 @@ __pycache__/
 # Data and checkpoints
 data/raw/
 data/processed/
-results/runs/
+results/runs/*
+!results/runs/temporal_vsr_5f_small_2x/
+results/runs/temporal_vsr_5f_small_2x/*
+!results/runs/temporal_vsr_5f_small_2x/train_log.jsonl
+!results/runs/temporal_vsr_5f_small_2x/val_metrics.jsonl
 results/onnx/
 
 # Notebook checkpoints

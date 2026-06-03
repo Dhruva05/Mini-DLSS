@@ -15,9 +15,9 @@ Use one row per run. Keep immutable run IDs.
 - `psnr_y` and `ssim_y` are primary report metrics.
 - Crop border for quality metrics: `2` pixels per side.
 - Use scene-disjoint train/eval split.
-- `stability_metric` must be either:
-  - `tPSNR=<value>` (preferred), or
-  - `diff_energy=<value>` (fallback).
+- `stability_metric` should include output-only and target-relative diagnostics when available:
+  - `tPSNR=<value>` and `diff_energy=<value>`
+  - `tpsnr_delta=<value>` and `temporal_error_energy=<value>` after rerunning `eval.py`
 - `ms_per_frame` measured on fixed 10-second clip for final-model runs.
 
 ## Milestone Checks

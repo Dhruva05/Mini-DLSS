@@ -50,6 +50,29 @@ def frame_difference_energy(frames: List[torch.Tensor | np.ndarray]) -> float:
     return float(np.mean(diffs))
 
 
+def temporal_error_energy(
+    frames: List[torch.Tensor | np.ndarray],
+    target_frames: List[torch.Tensor | np.ndarray],
+) -> float:
+    if len(frames) != len(target_frames):
+        raise ValueError(f"Expected equal frame counts, got pred={len(frames)} target={len(target_frames)}")
+    if len(frames) < 2:
+        return 0.0
+
+    errors = []
+    prev_pred = _to_chw_float(frames[0])
+    prev_target = _to_chw_float(target_frames[0])
+    for pred, target in zip(frames[1:], target_frames[1:]):
+        cur_pred = _to_chw_float(pred)
+        cur_target = _to_chw_float(target)
+        pred_delta = cur_pred - prev_pred
+        target_delta = cur_target - prev_target
+        errors.append(torch.mean(torch.abs(pred_delta - target_delta)).item())
+        prev_pred = cur_pred
+        prev_target = cur_target
+    return float(np.mean(errors))
+
+
 def temporal_psnr_flow_warp(frames: List[torch.Tensor | np.ndarray]) -> float | None:
     if cv2 is None or len(frames) < 2:
         return None
@@ -94,10 +117,25 @@ def temporal_psnr_flow_warp(frames: List[torch.Tensor | np.ndarray]) -> float | 
     return float(np.mean(scores))
 
 
-def compute_temporal_metrics(frames: List[torch.Tensor | np.ndarray]) -> Dict[str, float]:
+def compute_temporal_metrics(
+    frames: List[torch.Tensor | np.ndarray],
+    target_frames: List[torch.Tensor | np.ndarray] | None = None,
+) -> Dict[str, float]:
     out: Dict[str, float] = {}
     out["diff_energy"] = frame_difference_energy(frames)
     tpsnr = temporal_psnr_flow_warp(frames)
     if tpsnr is not None:
         out["tpsnr"] = tpsnr
+    if target_frames is not None:
+        if len(frames) != len(target_frames):
+            raise ValueError(f"Expected equal frame counts, got pred={len(frames)} target={len(target_frames)}")
+        target_diff = frame_difference_energy(target_frames)
+        out["target_diff_energy"] = target_diff
+        out["diff_energy_delta"] = out["diff_energy"] - target_diff
+        out["temporal_error_energy"] = temporal_error_energy(frames, target_frames)
+
+        target_tpsnr = temporal_psnr_flow_warp(target_frames)
+        if tpsnr is not None and target_tpsnr is not None:
+            out["target_tpsnr"] = target_tpsnr
+            out["tpsnr_delta"] = tpsnr - target_tpsnr
     return out

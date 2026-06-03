@@ -138,6 +138,7 @@ def main() -> None:
     count = 0
 
     temporal_buckets: Dict[str, List[Tuple[str, torch.Tensor]]] = defaultdict(list)
+    target_temporal_buckets: Dict[str, List[Tuple[str, torch.Tensor]]] = defaultdict(list)
     demo_buckets: Dict[str, List[Tuple[str, np.ndarray]]] = defaultdict(list)
 
     for idx, batch in enumerate(loader):
@@ -162,6 +163,7 @@ def main() -> None:
         seq_id = batch["sequence_id"][0]
         frame_name = batch["frame_name"][0]
         temporal_buckets[seq_id].append((frame_name, pred[0].detach().cpu()))
+        target_temporal_buckets[seq_id].append((frame_name, hr[0].detach().cpu()))
 
         strip = _compose_strip(
             lr_up[0].detach().cpu(),
@@ -187,7 +189,8 @@ def main() -> None:
     temporal_count = 0
     for seq_id, frames in temporal_buckets.items():
         frames = sorted(frames, key=lambda x: x[0])
-        seq_metrics = compute_temporal_metrics([f[1] for f in frames])
+        targets = sorted(target_temporal_buckets[seq_id], key=lambda x: x[0])
+        seq_metrics = compute_temporal_metrics([f[1] for f in frames], target_frames=[f[1] for f in targets])
         for k, v in seq_metrics.items():
             temporal_scores[k] += v
         temporal_count += 1

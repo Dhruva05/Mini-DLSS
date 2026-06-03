@@ -28,6 +28,11 @@ results/runs/temporal_vsr_5f_small_2x/checkpoints/best.pt
 | Best checkpoint step | 80000 |
 | Best validation metric in checkpoint | 38.3265 PSNR-Y |
 
+Restored Drive training logs:
+
+- `results/runs/temporal_vsr_5f_small_2x/train_log.jsonl`
+- `results/runs/temporal_vsr_5f_small_2x/val_metrics.jsonl`
+
 The single-frame SR baseline below uses the available local fast-cycle checkpoint:
 `results/runs/week3_single_frame_fast_localreds/checkpoints/best.pt`.
 
@@ -94,6 +99,25 @@ Output:
 
 - [ONNX model](onnx/temporal_vsr_5f_small_2x.onnx)
 
+Runtime benchmark:
+
+```bash
+.venv/bin/python bench_onnxruntime.py \
+  --onnx results/onnx/temporal_vsr_5f_small_2x.onnx \
+  --input results/week3/latency_input_10s_lr.mp4 \
+  --config configs/temporal_small.toml \
+  --output-json results/final/tables/onnxruntime_temporal_vsr_5f_small_2x_latency.json
+```
+
+| item | value |
+| --- | --- |
+| Runtime | ONNX Runtime `CPUExecutionProvider` |
+| Frames | 240 |
+| Warmup runs | 10 |
+| CPU elapsed | 5.181 sec |
+| ONNX Runtime CPU latency | 21.589 ms/frame |
+| Output JSON | [onnxruntime_temporal_vsr_5f_small_2x_latency.json](final/tables/onnxruntime_temporal_vsr_5f_small_2x_latency.json) |
+
 ## 10-Second Demo
 
 Input clip:
@@ -124,20 +148,21 @@ Result:
 | Frames | 240 |
 | CPU elapsed | 8.386 sec |
 | PyTorch CPU latency | 34.941 ms/frame |
+| ONNX Runtime CPU latency | 21.589 ms/frame |
 | Checkpoint | `results/runs/temporal_vsr_5f_small_2x/checkpoints/best.pt` |
 
-The ONNX model was exported successfully, but ONNX Runtime latency has not been benchmarked yet.
+The ONNX model was exported successfully and benchmarked with ONNX Runtime CPU on the same fixed 10-second LR clip.
 
 ## Failure Cases
 
 - Fast motion and occlusions can still produce edge wobble because the model uses lightweight recurrent alignment rather than explicit optical flow or deformable alignment.
 - Thin text, fences, and repeated high-frequency textures can look oversmoothed or temporally inconsistent.
-- The CPU demo is useful for reproducibility, but it is not a real-time deployment benchmark. GPU, ONNX Runtime, and quantization should be measured separately.
+- The CPU demo is useful for reproducibility, but it is not a real-time deployment benchmark. GPU latency and quantization should be measured separately.
 - The current single-frame comparison is not budget-matched with the temporal model; it is useful as a pipeline baseline, not as a final single-frame ablation claim.
 
 ## Improvements Next
 
 - Train a budget-matched single-frame SR baseline and rerun this exact evaluation table.
 - Add flow-warped temporal consistency loss or a stronger alignment module for tougher motion.
-- Benchmark ONNX Runtime latency and try fp16 or int8 quantization.
+- Benchmark GPU latency and try fp16 or int8 quantization.
 - Expand the final report with per-scene metrics and selected failure clips.

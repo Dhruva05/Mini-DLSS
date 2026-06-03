@@ -1,0 +1,18 @@
+{
+  "onnx": "results/onnx/temporal_vsr_5f_small_2x.onnx",
+  "input": "results/week3/latency_input_10s_lr.mp4",
+  "config": "configs/temporal_small.toml",
+  "frames": 240,
+  "runs": 1,
+  "warmup": 10,
+  "elapsed_sec": 5.181462000000465,
+  "ms_per_frame": 21.58942500000194,
+  "providers_requested": [
+    "CPUExecutionProvider"
+  ],
+  "providers_used": [
+    "CPUExecutionProvider"
+  ],
+  "input_name": "lr_frames",
+  "output_name": "sr_frame"
+}
