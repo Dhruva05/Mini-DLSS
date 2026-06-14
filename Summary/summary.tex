@@ -1,593 +1,471 @@
-\documentclass[11pt,onecolumn]{IEEEtran}
+\documentclass[10pt]{article}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
+\usepackage[letterpaper,margin=0.76in,headheight=14pt]{geometry}
 \usepackage{microtype}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{bm}
+\usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{array}
+\usepackage{enumitem}
 \usepackage{graphicx}
+\usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,calc}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{caption}
 \usepackage[hidelinks]{hyperref}
-\usepackage{url}
-\usepackage{cite}
+\usepackage{fancyhdr}
+
+\definecolor{navy}{HTML}{17324D}
+\definecolor{blue}{HTML}{2F6F9F}
+\definecolor{lightblue}{HTML}{EAF3F8}
+\definecolor{lightgray}{HTML}{F3F5F7}
+\definecolor{green}{HTML}{237A57}
+\definecolor{orange}{HTML}{B45F06}
+\definecolor{textgray}{HTML}{4A5560}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=navy,
+  citecolor=navy,
+  urlcolor=blue,
+  pdftitle={Mini-DLSS: Technical Summary and Evaluation Report},
+  pdfsubject={Lightweight temporal video super-resolution},
+  pdfkeywords={video super-resolution, temporal reconstruction, ConvGRU, ONNX}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{textgray}Mini-DLSS Technical Summary}
+\rhead{\small\color{textgray}June 2026}
+\cfoot{\small\color{textgray}\thepage}
+\renewcommand{\headrulewidth}{0.35pt}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlist[itemize]{leftmargin=1.35em,itemsep=0.25em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=0.25em,topsep=0.25em}
+\captionsetup{font=small,labelfont=bf}
+\renewcommand{\arraystretch}{1.16}
 
 \newcommand{\project}{Mini-DLSS}
 \newcommand{\code}[1]{\texttt{#1}}
-\DeclareMathOperator{\Bicubic}{Bicubic}
-\DeclareMathOperator{\PSNR}{PSNR}
-\DeclareMathOperator{\SSIM}{SSIM}
+\newcommand{\metric}[1]{\textbf{\color{navy}#1}}
+\newcommand{\sectionrule}{\vspace{-0.45em}\color{blue}\rule{\linewidth}{0.7pt}\color{black}\vspace{0.2em}}
+\newcommand{\reportsection}[1]{\section*{\color{navy}#1}\sectionrule\addcontentsline{toc}{section}{#1}}
+
+\newcommand{\callout}[2]{%
+  \begin{center}
+  \setlength{\fboxsep}{8pt}%
+  \fcolorbox{blue}{lightblue}{%
+    \parbox{\dimexpr0.94\linewidth-2\fboxsep-2\fboxrule\relax}{%
+      \raggedright\textbf{\color{navy}#1}\color{black}\ #2%
+    }%
+  }%
+  \end{center}
+}
 
 \begin{document}
 
+\hypersetup{pageanchor=false}
 \begin{titlepage}
-\centering
-\vspace*{1.1in}
-{\Huge\bfseries Mini-DLSS: A Lightweight Temporal Video Super-Resolution System\par}
+\thispagestyle{empty}
+
+\vspace*{0.35in}
+{\color{blue}\rule{\linewidth}{3pt}}
 \vspace{0.35in}
-{\Large Research-Paper-Style Technical Breakdown and Engineering Whitepaper\par}
-\vspace{0.55in}
-{\large Repository: \code{/Users/dhruvashekdar/Documents/Mini-DLSS}\par}
-\vspace{0.15in}
-{\large Generated on May 23, 2026\par}
-\vfill
-{\large Scope: fixed $2\times$ video super-resolution, temporal reconstruction, reproducible training/evaluation, and ONNX-oriented deployment\par}
+
+{\sffamily\bfseries\fontsize{30}{34}\selectfont\color{navy}
+Mini-DLSS\par}
+\vspace{0.12in}
+{\sffamily\bfseries\fontsize{20}{24}\selectfont
+Lightweight Temporal Video Super-Resolution\par}
+\vspace{0.22in}
+{\Large\color{textgray}Technical Summary and Evaluation Report\par}
+
 \vspace{0.5in}
+\callout{Purpose.}{
+\project{} is a compact, reproducible study of learned $2\times$ video
+super-resolution. It uses five low-resolution frames to reconstruct the
+high-resolution center frame with a bidirectional ConvGRU model.
+
+\par\smallskip\textbf{\color{navy}Scope.}\color{black}\hspace{0.35em}
+The project is inspired by the temporal-reconstruction idea behind DLSS, but
+it is \emph{not} an implementation of NVIDIA DLSS. It does not use renderer
+motion vectors, depth, jitter, exposure history, or proprietary components.
+
+\par\smallskip\textbf{\color{navy}Headline result.}\color{black}\hspace{0.35em}
+On the repository's local Vimeo-derived REDS-style validation set, the final
+temporal checkpoint reaches \metric{38.3265 dB PSNR-Y}, a
+\metric{+1.5231 dB} improvement over bicubic upscaling. These are pipeline
+validation results, not official REDS benchmark results.
+}
+
+\vfill
+
+\begin{tabularx}{\linewidth}{>{\bfseries\color{navy}}l X}
+Model & BasicVSR-style center-frame predictor with bidirectional ConvGRU propagation \\
+Input / output & Five LR RGB frames $\rightarrow$ one $2\times$ HR center frame \\
+Best checkpoint & 80,000 training steps; 0.716M parameters \\
+Deployment & PyTorch MP4 demo and fixed-window ONNX export \\
+Report date & June 14, 2026 \\
+\end{tabularx}
+
+\vspace{0.4in}
+{\color{blue}\rule{\linewidth}{3pt}}
 \end{titlepage}
+\hypersetup{pageanchor=true}
+\setcounter{page}{1}
 
-\begin{abstract}
-\project{} is a compact research and engineering implementation of temporal video super-resolution (VSR). The repository is explicitly DLSS-inspired, but it is not an implementation of NVIDIA DLSS: it does not integrate with a renderer, use motion vectors from a game engine, or reproduce proprietary reconstruction logic. Instead, it isolates a public-data, PyTorch-based VSR problem: given a short low-resolution temporal window, reconstruct the high-resolution center frame at a fixed scale factor of $2\times$. This formulation makes the repository useful as a controlled study of temporal information, recurrent propagation, evaluation protocols, and deployment mechanics for learned video upscaling.
+\reportsection{Executive Summary}
 
-The engineering problem is the gap between single-image super-resolution and stable video reconstruction. A framewise super-resolution model can improve individual frames, but it cannot explicitly use information in neighboring frames and can produce temporal flicker. A video model must recover spatial detail while maintaining temporal coherence, which creates a coupled systems problem: the dataset must preserve sequence order, the model must ingest temporally aligned windows, evaluation must measure both per-frame fidelity and frame-to-frame stability, and inference must produce a runtime artifact such as an MP4 or ONNX model. \project{} addresses that problem by combining manifest-driven sequence datasets, a single-frame residual CNN baseline, a lightweight BasicVSR-style temporal model, reproducible training scripts, image and temporal metrics, qualitative media outputs, and a simple deployment path.
+\project{} addresses a practical gap between framewise image upscaling and
+temporally stable video reconstruction. A single-image super-resolution model
+can sharpen each frame independently, but it cannot explicitly aggregate
+sub-pixel information from neighboring frames and may introduce visible
+frame-to-frame variation. The project therefore treats temporal video
+super-resolution as a complete engineering pipeline: sequence-aware data
+loading, learned reconstruction, image and temporal metrics, checkpointed
+training, qualitative video output, and ONNX deployment.
 
-The core learned model, \code{BasicVSRMini}, is a deliberately simplified derivative of the BasicVSR design philosophy \cite{chan2021basicvsr}. It extracts per-frame convolutional features, propagates context forward and backward through convolutional GRU cells, fuses the center feature with both recurrent states, and reconstructs the center high-resolution frame through a PixelShuffle upsampler \cite{shi2016pixelshuffle}. Unlike full BasicVSR or EDVR-style methods \cite{chan2021basicvsr,wang2019edvr}, the implementation does not estimate optical flow for alignment and does not emit a full high-resolution sequence in one forward pass. This is an important engineering tradeoff: it reduces implementation complexity and makes Colab-scale experiments feasible, but it limits the motion-compensation capability of the model and increases redundant computation during sliding-window inference.
+The final model, \code{BasicVSRMini}, is deliberately small. A shared
+convolutional encoder extracts features from a five-frame low-resolution
+window. Two convolutional GRUs propagate context forward and backward. The
+center-frame feature and both recurrent states are fused, refined by residual
+blocks, and upsampled with PixelShuffle. The model predicts one center frame
+per window rather than an entire sequence.
 
-The repository's pipeline is intentionally explicit. \code{MultiFrameSRDataset} reads sequence manifests, loads RGB frames as normalized tensors, constructs odd-length temporal windows, optionally creates low-resolution inputs through bicubic downsampling, and returns a center-frame target. \code{train.py} builds PyTorch data loaders, constructs models through a factory, optimizes an $L_1$ or $L_1$-plus-perceptual objective with Adam \cite{kingma2015adam}, validates at fixed intervals, and writes self-contained checkpoints. \code{eval.py} evaluates bicubic and learned models with cropped Y-channel and RGB PSNR/SSIM \cite{wang2004ssim}, computes temporal stability using global frame-difference energy and optional Farneb{\"a}ck-flow temporal PSNR \cite{farneback2003}, and writes tables, JSON, image strips, and comparison videos. \code{demo\_video.py} runs model or bicubic inference on arbitrary low-resolution MP4 input, while \code{export\_onnx.py} exports a fixed-window model with dynamic batch and spatial axes for ONNX-oriented deployment.
+The strongest reported checkpoint was selected at 80,000 steps from a
+150,000-step training run. On the local validation set it improves PSNR-Y over
+bicubic from 36.8033 dB to 38.3265 dB and improves flow-warped tPSNR from
+36.3441 dB to 36.6018 dB. ONNX Runtime CPU inference reduces measured latency
+from 34.941 ms/frame in PyTorch to 21.589 ms/frame on the same 240-frame,
+$64\times64$ low-resolution clip.
 
-The current codebase should be read as a reproducible VSR research scaffold rather than a finished state-of-the-art model. Its strengths are clear module boundaries, deterministic split/config handling, concrete baselines, reproducible artifacts, and a mathematically inspectable temporal model. Its main limitations are the absence of learned or explicit alignment, no conventional automated test suite, no cached recurrent-state runtime path, global rather than low-texture-masked temporal difference energy, and local Week 3 results that are explicitly marked as Vimeo-derived REDS-style validation rather than official REDS benchmark claims. These limitations are not incidental; they define the next research steps: official benchmark evaluation, true temporal/warping losses, flow- or deformable-alignment modules, broader ablations, runtime caching, quantization or mixed precision, and stricter experiment validation.
-\end{abstract}
+The evidence is encouraging but bounded. The validation set is generated from
+Vimeo sequences in a REDS-style directory layout, the available single-frame
+checkpoint is undertrained and not budget matched, and the model lacks
+explicit optical-flow or deformable alignment. The report therefore supports
+a reproducible engineering result, not a state-of-the-art or official
+benchmark claim.
 
-\begin{IEEEkeywords}
-Video super-resolution, temporal reconstruction, BasicVSR, ConvGRU, PixelShuffle, PSNR, SSIM, ONNX, reproducible machine learning systems.
-\end{IEEEkeywords}
+\reportsection{Problem and Scope}
 
-\section{Introduction}
+\subsection*{Task}
 
-Video super-resolution asks for high-resolution video reconstruction from low-resolution observations. In the simplest supervised formulation, a model observes low-resolution frames $\{\mathbf{x}_t\}$ and predicts high-resolution frames $\{\mathbf{y}_t\}$. Compared with single-image super-resolution, VSR can exploit sub-pixel motion, repeated texture observations, and temporal redundancy. It is also more difficult: adjacent frames may contain occlusions, motion blur, rolling shutter artifacts, inconsistent degradation, and disoccluded regions. A model that optimizes each frame independently may score reasonably on per-frame metrics but still shimmer during playback.
+For an odd temporal window of $T=2r+1$ low-resolution frames, the model
+reconstructs the high-resolution center frame:
+\begin{equation}
+  \widehat{\mathbf{y}}_c =
+  f_\theta\!\left(
+    \mathbf{x}_{c-r},\ldots,\mathbf{x}_{c},\ldots,\mathbf{x}_{c+r}
+  \right),
+  \qquad T=5,\quad s=2.
+\end{equation}
+Here $\mathbf{x}_t\in[0,1]^{3\times h\times w}$ is an LR RGB frame,
+$\mathbf{y}_t\in[0,1]^{3\times 2h\times 2w}$ is its HR target, and
+$f_\theta$ is the learned temporal reconstruction model.
 
-\project{} narrows this problem to a fixed and inspectable setting. The scale factor is locked to $s=2$; the default temporal model uses $T=5$ low-resolution input frames; the output is the high-resolution center frame; training uses Vimeo-90K-style sequence manifests \cite{xue2019toflow}; and evaluation is designed around REDS-style validation and demo clips \cite{nah2019reds}. The project is small enough that the entire system can be understood from a few top-level entry points, yet complete enough to cover the practical lifecycle of a learned restoration model: dataset preparation, model training, validation, artifact generation, benchmarking, visualization, export, and runtime demo.
+\subsection*{What the project demonstrates}
 
-The motivating engineering problem is not merely ``make images larger.'' Bicubic interpolation already solves geometric resizing. The harder problem is reconstructing plausible high-frequency detail while avoiding temporal instability and preserving a reproducible evaluation contract. This repository therefore treats the VSR system as a pipeline rather than as a model alone. It includes split manifests, dataset checks, training configs, baselines, metric code, tables, videos, checkpoints, and deployment scripts. The result is an internal research scaffold that a new engineer can run, inspect, and extend.
+\begin{itemize}
+  \item sequence manifests and deterministic temporal-window sampling;
+  \item bicubic, single-frame, and temporal reconstruction paths;
+  \item cropped Y-channel and RGB PSNR/SSIM evaluation;
+  \item temporal diagnostics based on frame differences and optical-flow warping;
+  \item reproducible checkpoints, JSON/Markdown reports, comparison media, and ONNX export.
+\end{itemize}
 
-Existing approaches form a spectrum. Bicubic upsampling is deterministic, fast, and stable, but cannot synthesize missing detail beyond interpolation. Single-image SR models such as residual CNNs can learn sharper framewise mappings, but do not explicitly use neighboring frames. Modern VSR systems such as BasicVSR, BasicVSR++, and EDVR use temporal propagation and alignment to aggregate information across frames \cite{chan2021basicvsr,chan2022basicvsrpp,wang2019edvr}. \project{} adopts the recurrent bidirectional-propagation idea, but strips it down to a ConvGRU-based center-frame predictor without explicit optical-flow alignment. That makes the codebase suitable for studying the theory-to-implementation relationship without hiding the core behavior behind a large framework.
+\subsection*{What the project does not claim}
 
-\section{Repository Objective}
+\begin{itemize}
+  \item It is not NVIDIA DLSS and does not reproduce proprietary reconstruction logic.
+  \item It is not integrated with a renderer or supplied with engine motion vectors.
+  \item It is not an official REDS result or a state-of-the-art VSR benchmark submission.
+  \item It does not yet establish a fair temporal-versus-single-frame ablation.
+\end{itemize}
 
-\subsection{Purpose}
+\reportsection{System Design}
 
-The repository objective is to build a Mini-DLSS-style VSR pipeline for fixed $2\times$ upscaling. The project README states the task, baseline set, model path, evaluation protocol, and definition of done. The intended workflow is:
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  node distance=0.42cm,
+  block/.style={
+    rectangle,
+    rounded corners=3pt,
+    draw=navy,
+    line width=0.8pt,
+    align=center,
+    minimum height=1.05cm,
+    text width=2.35cm,
+    font=\small
+  },
+  input/.style={block,fill=lightblue},
+  process/.style={block,fill=lightgray},
+  recurrent/.style={block,fill=orange!12},
+  output/.style={block,fill=green!12},
+  arrow/.style={-{Stealth[length=2.2mm]},line width=0.8pt,draw=navy}
+]
+\node[input] (window) {Five-frame LR window\\$[B,5,3,h,w]$};
+\node[process,right=of window] (features) {Shared encoder\\Conv + residual blocks};
+\node[recurrent,right=of features] (propagation) {Bidirectional\\ConvGRU propagation};
+\node[process,right=of propagation] (fusion) {Center fusion\\feature + two states};
+\node[output,right=of fusion] (upsample) {PixelShuffle\\$2\times$ RGB output};
+\draw[arrow] (window) -- (features);
+\draw[arrow] (features) -- (propagation);
+\draw[arrow] (propagation) -- (fusion);
+\draw[arrow] (fusion) -- (upsample);
+\end{tikzpicture}
+\caption{The \code{BasicVSRMini} inference path. Temporal information is
+propagated in both directions and fused only at the center frame.}
+\label{fig:model}
+\end{figure}
+
+\subsection*{Feature extraction and propagation}
+
+Each LR frame is encoded independently by a shared convolutional feature
+extractor:
+\begin{equation}
+  \mathbf{e}_t = E(\mathbf{x}_t).
+\end{equation}
+Forward and backward ConvGRU cells then aggregate temporal context:
+\begin{align}
+  \mathbf{h}^{\rightarrow}_t &=
+    G_f(\mathbf{e}_t,\mathbf{h}^{\rightarrow}_{t-1}),\\
+  \mathbf{h}^{\leftarrow}_t &=
+    G_b(\mathbf{e}_t,\mathbf{h}^{\leftarrow}_{t+1}).
+\end{align}
+At center index $c$, the model concatenates
+$[\mathbf{e}_c,\mathbf{h}^{\rightarrow}_c,\mathbf{h}^{\leftarrow}_c]$,
+reduces the channels with a $1\times1$ convolution, applies residual
+refinement, and reconstructs RGB with convolution plus PixelShuffle
+\cite{shi2016pixelshuffle}.
+
+This design borrows the bidirectional propagation principle of BasicVSR
+\cite{chan2021basicvsr}, but omits its explicit optical-flow alignment and
+sequence-wide reconstruction. The omission keeps the model compact and easy
+to train, but limits robustness under large displacement, occlusion, and
+scene changes.
+
+\subsection*{Training objective}
+
+The reported model uses an $L_1$ center-frame reconstruction loss:
+\begin{equation}
+  \mathcal{L}_1(\theta)=
+  \frac{1}{|\Omega|}
+  \sum_{u\in\Omega}
+  \left|
+    f_\theta(\mathbf{x}_{c-2:c+2})_u-\mathbf{y}_{c,u}
+  \right|.
+\end{equation}
+Training uses Adam with learning rate $2\times10^{-4}$, batch size 4,
+48 base channels, and 6 reconstruction residual blocks. The final run
+continued to 150,000 steps; the best validation checkpoint occurred at
+80,000 steps.
+
+\reportsection{Data and Evaluation Protocol}
+
+\subsection*{Data}
+
+Training uses a union of Vimeo-90K-style sequence data. The checked-in local
+evaluation set contains Vimeo-derived sequences arranged in a REDS-style
+HR/LR directory structure. Sequence-level manifests avoid mixing neighboring
+frames across scenes. During training, the loader selects aligned temporal
+windows, applies scale-aligned crops and flips, and returns the HR center
+frame as the target.
+
+\callout{Benchmark caveat.}{
+The validation IDs and folder layout resemble REDS, but the content is
+Vimeo-derived. The reported values are valid for reproducing this repository's
+pipeline and demo; they must not be presented as official REDS benchmark
+results.
+}
+
+\subsection*{Image metrics}
+
+Predictions are clamped to $[0,1]$ and cropped by two pixels on every border.
+The primary domain is the BT.601-style Y channel. PSNR and SSIM are computed
+per frame and averaged across the validation samples \cite{wang2004ssim}.
+
+\subsection*{Temporal metrics}
+
+The report includes two output-only temporal diagnostics:
+\begin{itemize}
+  \item \textbf{Difference energy}: mean absolute change between adjacent output frames. Lower is not automatically better because true scene motion also contributes.
+  \item \textbf{tPSNR}: PSNR between adjacent outputs after Farneb\"ack optical-flow warping \cite{farneback2003}. Higher generally indicates smoother motion-compensated evolution, but the score inherits optical-flow errors.
+\end{itemize}
+
+Target-relative auditing is also implemented. The final temporal model has
+temporal error energy 0.0105, compared with 0.0108 for bicubic and 0.0145 for
+the undertrained single-frame checkpoint. These diagnostics are more
+interpretable than raw smoothness alone because they compare predicted motion
+with target motion.
+
+\reportsection{Results}
+
+\begin{table}[ht]
+\centering
+\caption{Local Vimeo-derived REDS-style evaluation. The single-frame model is
+a 300-step pipeline baseline and is not budget matched.}
+\label{tab:results}
+\small
+\begin{tabularx}{\linewidth}{
+  >{\raggedright\arraybackslash}X
+  r r r r r
+}
+\toprule
+\textbf{Method} &
+\textbf{PSNR-Y} &
+\textbf{SSIM-Y} &
+\textbf{tPSNR} &
+\textbf{Diff.} &
+\textbf{CPU ms/frame} \\
+\midrule
+Bicubic &
+36.8033 & 0.9601 & 36.3441 & 0.0217 & 0.238 \\
+Single-frame SR, 300 steps &
+32.3755 & 0.8807 & 33.8817 & 0.0183 & 9.105 \\
+\textbf{Temporal SR, 5 frames} &
+\textbf{38.3265} & \textbf{0.9604} & \textbf{36.6018} &
+\textbf{0.0201} & 34.941 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\callout{Primary finding.}{
+The final temporal model improves PSNR-Y by \metric{+1.5231 dB} and tPSNR by
+\metric{+0.2578 dB} over bicubic on the locked local evaluation set. It also
+reduces raw difference energy from 0.0217 to 0.0201.
+}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[
+  width=\linewidth
+]{../results/final/videos/final_temporal_vsr_5f_small_2x/all_val_comparison_preview.png}
+\caption{Representative comparison generated by the final checkpoint. From
+left to right: nearest-neighbor LR visualization, bicubic, temporal SR, and HR
+target. The temporal output restores sharper structure than bicubic while
+remaining visually close to the target.}
+\label{fig:qualitative}
+\end{figure}
+
+\subsection*{Interpretation}
+
+The PSNR result demonstrates that the temporal model learns useful information
+beyond deterministic interpolation on this data distribution. The final model
+also improves flow-warped tPSNR relative to bicubic, while its target-relative
+temporal error is slightly lower. Together these results support the claim
+that neighboring frames contribute both reconstruction quality and temporal
+consistency.
+
+The single-frame row should not be used to quantify the value of temporal
+modeling. That checkpoint was trained for only 300 steps, whereas the final
+temporal model was selected from a long run. Its lower raw difference energy
+mainly reflects smoother, underfit outputs. A fair ablation requires matched
+data, optimizer, parameter count, training steps, and checkpoint selection.
+
+\reportsection{Deployment and Reproducibility}
+
+\begin{table}[ht]
+\centering
+\caption{Final deployment artifacts and measured CPU latency.}
+\small
+\begin{tabularx}{\linewidth}{>{\bfseries\color{navy}}l X r}
+\toprule
+Artifact & Configuration & Result \\
+\midrule
+PyTorch demo & 240 frames, $64\times64$ LR, five-frame windows & 34.941 ms/frame \\
+ONNX Runtime & CPUExecutionProvider, same clip, 10 warmups & 21.589 ms/frame \\
+ONNX graph & Dynamic batch and spatial axes; fixed temporal length & Export successful \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The ONNX Runtime measurement is 38.2\% lower latency than the PyTorch CPU
+demo on the same clip. This is a deployment comparison, not a hardware-neutral
+real-time claim. The current sliding-window path recomputes overlapping
+features and recurrent states for every output frame, leaving substantial room
+for streaming-state reuse.
+
+The repository preserves the full training configuration in checkpoints and
+stores training and validation metrics as JSONL. The key reproducibility
+artifacts are:
+\begin{itemize}
+  \item \code{configs/temporal\_small.toml};
+  \item \code{results/runs/temporal\_vsr\_5f\_small\_2x/checkpoints/best.pt};
+  \item \code{results/final/tables/final\_comparison.md};
+  \item \code{results/onnx/temporal\_vsr\_5f\_small\_2x.onnx};
+  \item final comparison images and videos under \code{results/final/videos/}.
+\end{itemize}
+
+\reportsection{Limitations and Next Steps}
+
 \begin{enumerate}
-\item prepare or verify sequence datasets and split manifests;
-\item train a single-frame or temporal super-resolution model;
-\item evaluate against bicubic and learned baselines using image and temporal metrics;
-\item generate qualitative comparison media;
-\item export or run the trained model on an MP4 clip.
+  \item \textbf{Evaluation validity.} Rerun the locked protocol on official REDS data before making benchmark claims.
+  \item \textbf{Fair baseline.} Train a budget-matched single-frame model before attributing gains specifically to temporal context.
+  \item \textbf{Motion handling.} Add flow-guided or deformable alignment for large motion, occlusion, and fine repeated textures.
+  \item \textbf{Temporal objective.} Evaluate target-relative consistency or warping losses instead of relying only on center-frame $L_1$.
+  \item \textbf{Runtime.} Cache frame features and recurrent state across overlapping windows; then benchmark GPU, FP16, and quantized inference.
+  \item \textbf{Testing.} Add automated coverage for window indexing, metric formulas, checkpoint resume, ONNX parity, and boundary-frame padding.
 \end{enumerate}
 
-The name ``Mini-DLSS'' should be interpreted as an engineering analogy, not a claim of equivalence. DLSS-like systems use temporal reconstruction to upscale rendered content, but this repository operates on public VSR datasets and ordinary video files. It does not use engine-side motion vectors, depth buffers, exposure history, jitter patterns, or proprietary temporal antialiasing mechanisms.
+\newpage
+\reportsection{Conclusion}
 
-\subsection{Target Use Case}
+\project{} is a credible compact implementation of temporal video
+super-resolution. Its main contribution is not a claim of DLSS equivalence;
+it is a readable, reproducible path from temporal-window data loading through
+training, evaluation, qualitative evidence, and ONNX deployment. The final
+checkpoint clearly outperforms bicubic on the locked local validation set,
+while the report's caveats identify exactly what remains necessary for a fair
+research comparison and broader deployment claim.
 
-The target user is an ML/software engineer experimenting with lightweight video restoration. The repo supports:
-\begin{itemize}
-\item fast smoke and local validation cycles;
-\item Colab-oriented training through small configs and a notebook;
-\item comparison of bicubic, framewise SR, and temporal SR;
-\item reproducible result artifacts under \code{results/};
-\item ONNX export for model portability;
-\item MP4 demo inference for visually inspecting temporal behavior.
-\end{itemize}
-
-\subsection{Non-Goals}
-
-The implementation is not a game-engine plugin, not a production video codec, and not a state-of-the-art VSR benchmark submission. It intentionally omits several high-performance components: optical-flow alignment in the model, deformable convolution, sequence-wide recurrent-state caching during demo inference, distributed training, automatic mixed precision, quantization, and a full test suite.
-
-\section{System Architecture}
-
-\input{figures/architecture.tex}
-
-\project{} is organized around a narrow set of contracts, summarized in Figure~\ref{fig:architecture}. Configs specify dataset paths, manifests, scale, training schedule, and model hyperparameters. \code{MultiFrameSRDataset} converts a sequence manifest into tensor samples. The model package exposes a single factory function, \code{build\_model}, which isolates entry points from architecture-specific constructors. Metrics accept tensors or NumPy arrays and do not depend on training internals. Utilities handle configuration loading, deterministic seeding, checkpoint save/load, and Markdown table writing. Top-level scripts compose these reusable units into training, evaluation, export, and demo workflows.
-
-This architecture is simple, but it is not accidental. The project avoids a monolithic experiment framework so that the execution path remains readable. The top-level scripts are imperative and close to the PyTorch primitives they use. The cost is less abstraction for large experiment management; the benefit is that a new contributor can trace the code path from command line arguments to model outputs in one sitting.
-
-\begin{table}[t]
-\centering
-\caption{Major repository modules and responsibilities.}
-\label{tab:codebase_overview}
+\begin{thebibliography}{9}
 \small
-\begin{tabular}{p{0.20\linewidth} p{0.34\linewidth} p{0.36\linewidth}}
-\toprule
-Path & Responsibility & Important interfaces and artifacts \\
-\midrule
-\code{README.md} & Defines project scope, datasets, baselines, evaluation protocol, compute assumptions, and command checklist. & Documents fixed $2\times$ scale, Vimeo-90K training, REDS-style evaluation, PSNR/SSIM/tPSNR reporting, ONNX export, and demo flow. \\
-\code{configs/} & Stores reproducible experiment definitions. & \code{temporal\_small.toml}, \code{temporal\_full.toml}, \code{single\_frame\_sr.toml}, and \code{base\_2x.toml}. \\
-\code{data/} & Implements dataset loading, split manifests, and dataset preparation scripts. & \code{MultiFrameSRDataset}, \code{read\_manifest}, split freezing, union-root symlinking, dataset checks, and local REDS-style generation. \\
-\code{models/} & Contains neural architectures and factory construction. & \code{SingleFrameSR}, \code{BasicVSRMini}, \code{ResidualBlock}, \code{ConvGRUCell}, \code{build\_model}. \\
-\code{metrics/} & Implements image and temporal evaluation. & Y/RGB PSNR, Y/RGB SSIM, border crop, frame-difference energy, optional Farneb{\"a}ck-flow tPSNR. \\
-\code{utils/} & Provides shared infrastructure. & TOML/JSON config loading, nested overrides, deterministic seeding, checkpoint save/load, Markdown table formatting. \\
-\code{train.py} & Main optimization loop. & Data loaders, model construction, $L_1$/perceptual loss, Adam, validation, checkpointing, JSONL logs. \\
-\code{eval.py} & Main validation and reporting CLI. & Bicubic/model/auto modes, metric aggregation, JSON/Markdown tables, PNG strips, MP4 comparison videos. \\
-\code{demo\_video.py} & Runtime MP4 inference path. & Reads LR MP4 frames, builds edge-padded temporal windows, writes SR MP4, reports ms/frame. \\
-\code{export\_onnx.py} & Deployment export path. & Exports configured checkpoint with dynamic batch and spatial axes but fixed temporal length. \\
-\code{scripts/} & Shell orchestration. & Fast cycle, full cycle, and temporal-window ablation scripts. \\
-\code{results/} & Experiment outputs and current evidence. & Checkpoints, logs, JSON/Markdown metrics, plots, image samples, and comparison videos. \\
-\bottomrule
-\end{tabular}
-\end{table}
 
-Table~\ref{tab:codebase_overview} expands the architecture into concrete repository paths and interfaces.
-
-\section{Codebase Breakdown}
-
-\subsection{Configuration Layer}
-
-The configuration layer is intentionally flat. \code{utils/config.py} loads TOML or JSON and applies recursive JSON overrides through \code{deep\_update}. This gives the command-line scripts a stable base configuration while allowing path substitutions on local machines or Colab. \code{seed\_everything} fixes Python, NumPy, PyTorch, and cuDNN deterministic settings. This improves reproducibility but may reduce raw cuDNN performance because \code{benchmark=False}.
-
-The default scale is $s=2$ across configs. \code{temporal\_small.toml} uses a 5-frame temporal window, 48 base channels, 6 residual blocks, batch size 4, 50k max steps, and $L_1$ loss. \code{temporal\_full.toml} uses 64 base channels, 10 residual blocks, batch size 2, 300k max steps, a larger crop, and $L_1$ plus perceptual loss. \code{single\_frame\_sr.toml} uses one frame, 64 channels, 8 blocks, and batch size 8.
-
-\subsection{Data Layer}
-
-The central data abstraction is \code{MultiFrameSRDataset}. A manifest line is interpreted as a sequence ID relative to \code{hr\_root} and optionally \code{lr\_root}. The loader lists image files per sequence, verifies matching HR/LR frame counts when LR files exist, and builds center-frame sample indices. For odd $T=2r+1$, valid centers are $r,\ldots,N-r-1$, so a sequence with $N$ frames contributes $N-T+1$ samples.
-
-Each item returns:
-\begin{equation}
-\text{\code{lr}}\in [T,3,h,w],\qquad \text{\code{hr}}\in [3,H,W],
-\end{equation}
-plus \code{sequence\_id} and \code{frame\_name}. If stored LR frames are absent and \code{generate\_lr\_on\_the\_fly=True}, LR frames are generated by bicubic downsampling of HR frames. Training optionally applies an HR crop aligned to the scale factor, then maps the same crop to LR coordinates. Random horizontal, vertical, and temporal-order flips provide lightweight augmentation.
-
-The data scripts support practical dataset hygiene. \code{freeze\_vimeo\_splits.py} creates deterministic Vimeo train/val/test manifests from official list files. \code{freeze\_vimeo\_union\_splits.py} deduplicates two Kaggle Vimeo subsets and creates a deterministic union split. \code{build\_vimeo\_union\_root.py} symlinks sequence directories into a merged root. \code{create\_reds\_val\_from\_vimeo.py} creates a local REDS-style validation tree from Vimeo frames for smoke testing when official REDS is unavailable. \code{check\_dataset.py} verifies sequence counts, temporal window counts, LR/HR alignment, and sample tensor shapes.
-
-\subsection{Model Layer}
-
-The model layer is compact. \code{models/common.py} defines \code{ResidualBlock} and \code{ConvGRUCell}. \code{models/single\_frame.py} defines \code{SingleFrameSR}. \code{models/temporal\_basicvsr.py} defines \code{BasicVSRMini}. \code{models/factory.py} maps config names to constructors. This package has no dependency on datasets, metrics, OpenCV, or result artifacts.
-
-The single-frame baseline accepts either a 4D tensor $[B,3,h,w]$ or a 5D temporal tensor $[B,T,3,h,w]$. In the temporal case it selects the center frame. The temporal model requires a 5D input and predicts only the center output frame. This shared tensor convention lets \code{train.py}, \code{eval.py}, and \code{export\_onnx.py} build either model through the same factory.
-
-\subsection{Metrics Layer}
-
-\code{metrics/image\_metrics.py} provides PSNR and SSIM on cropped tensors. Evaluation crops \code{scale} pixels from each border before computing metrics, then reports primary Y-channel metrics and optional RGB metrics. The Y transform uses a BT.601-style studio-range formula. \code{metrics/temporal\_metrics.py} reports global frame-difference energy for all sequences and, when OpenCV is available, computes Farneb{\"a}ck optical flow and reports tPSNR after warping adjacent outputs.
-
-One important implementation/documentation mismatch is visible here. The top-level project README describes the fallback temporal metric as frame-to-frame difference energy in low-texture regions, but the implemented \code{frame\_difference\_energy} computes a global mean absolute difference without a low-texture mask. This does not break the code, but it matters for interpreting temporal stability claims.
-
-\subsection{Workflow Entry Points}
-
-\code{train.py} is the main learning loop. It parses a config and optional JSON override, selects CPU if CUDA is requested but unavailable, seeds random number generators, builds train/validation data loaders, constructs the model, creates Adam, optionally restores a checkpoint, then iterates until \code{max\_steps}. It logs training loss to \code{train\_log.jsonl}, validates at configured intervals, saves \code{best.pt} when PSNR-Y improves, saves \code{latest.pt}, writes \code{val\_metrics.jsonl}, and optionally writes step checkpoints.
-
-\code{eval.py} supports \code{bicubic}, \code{model}, and \code{auto} modes. In auto/model mode it attempts to load \code{results/runs/<run\_name>/checkpoints/best.pt} unless an explicit checkpoint is provided. If no checkpoint exists in either auto or model mode, the current implementation warns and falls back to bicubic evaluation. It writes Markdown and JSON metrics, sample PNG strips, and curated MP4 comparisons.
-
-\code{demo\_video.py} is the direct runtime demonstration path. It reads a low-resolution MP4 with OpenCV, converts frames to tensors, builds an edge-replicated temporal window for each output frame, runs bicubic or model inference, writes an output MP4, and reports elapsed seconds plus milliseconds per frame. Unlike \code{eval.py}, model-mode demo inference raises an error if the checkpoint is missing. \code{export\_onnx.py} loads a required checkpoint and exports the configured model with dynamic batch, height, and width axes; temporal length remains fixed by \code{dataset.num\_frames}.
-
-\section{Training, Evaluation, and Inference Pipeline}
-
-\input{figures/training_pipeline.tex}
-
-\subsection{Input Processing}
-
-Figure~\ref{fig:training_pipeline} shows the training-time data path from config and manifests through temporal sampling, model optimization, validation, and checkpoint artifacts.
-
-The data pipeline starts from sequence directories and text manifests. A manifest does not list individual frames; it lists sequence IDs. This is important because temporal samples must be formed from neighboring frames in sorted order. For a sequence ID $q$, the dataset expects:
-\begin{equation}
-\text{\code{hr\_root}/q/}\{f_0,\ldots,f_{N-1}\},
-\end{equation}
-and optionally:
-\begin{equation}
-\text{\code{lr\_root}/q/}\{f_0,\ldots,f_{N-1}\}.
-\end{equation}
-If \code{lr\_root} is missing, the dataset can synthesize LR frames by bicubic downsampling. When LR frames are provided, the dataset verifies frame counts but does not explicitly verify spatial scale alignment; spatial mismatches would surface later through tensor shape or metric behavior. The split files currently include 12,824 union Vimeo training sequences, 674 union Vimeo validation sequences, 1,748 union Vimeo test sequences, 240 REDS train IDs, 20 REDS validation IDs, and 10 REDS test IDs.
-
-\subsection{Feature Generation}
-
-The repository does not precompute learned features. Feature generation occurs inside the model forward pass. For each LR window, \code{BasicVSRMini} slices the temporal tensor into $T$ frames, runs a shared feature extractor on each frame, and stores a Python list of feature maps. This design is simple and ONNX-exportable for fixed $T$, but it does not exploit recurrent-state reuse across overlapping runtime windows.
-
-\subsection{Training Flow}
-
-The training objective is supervised center-frame restoration:
-\begin{equation}
-\hat{\mathbf{y}}_c=f_\theta(\mathbf{x}_{c-r},\ldots,\mathbf{x}_{c},\ldots,\mathbf{x}_{c+r}),\qquad T=2r+1.
-\label{eq:supervised_mapping}
-\end{equation}
-Each optimization step pulls a batch from an infinite dataloader cycle, sends LR and HR tensors to the selected device, computes the prediction, computes the configured loss, backpropagates, and applies an Adam update. Validation is run at \code{val\_interval} or at the final step. The validation loop clamps model outputs to $[0,1]$ before metrics; the training loss uses the raw model output.
-
-\subsection{Evaluation Flow}
-
-Evaluation uses batch size 1 and preserves sequence order for temporal metrics. For each sample, \code{eval.py} computes a bicubic center-frame reference, a nearest-neighbor upsampled LR visualization panel, and either a model prediction or bicubic prediction depending on mode. Per-frame image metrics are accumulated into sample-weighted global averages. Predictions are also bucketed by \code{sequence\_id}; after per-sample evaluation, each bucket is sorted by frame name and passed to \code{compute\_temporal\_metrics}, and temporal scores are averaged equally across sequences. This two-stage design keeps per-frame and per-sequence metrics separate.
-
-\subsection{Inference and Deployment Flow}
-
-\input{figures/inference_pipeline.tex}
-
-Runtime MP4 inference follows the three deployment paths in Figure~\ref{fig:inference_pipeline}. The MP4 path is sliding-window center-frame prediction. For output frame $i$, \code{demo\_video.py} builds indices:
-\begin{equation}
-\mathcal{I}(i)=\{\max(0,\min(n-1,j))\mid j=i-r,\ldots,i+r\},
-\end{equation}
-so boundary frames are replicated. The model sees one window and emits one SR frame. This strategy is robust for arbitrary-length video, but recomputes overlapping feature extraction and recurrent states. ONNX export uses a dummy tensor of shape $[1,T,3,h,w]$ and declares dynamic axes for batch and spatial dimensions only. The fixed temporal axis is consistent with model construction from config and simplifies downstream runtime assumptions.
-
-\subsection{Logging, Checkpointing, and Metrics}
-
-Training writes two JSONL streams: \code{train\_log.jsonl} for step, loss, elapsed time, and samples seen; and \code{val\_metrics.jsonl} for validation PSNR/SSIM metrics by step. Checkpoints store model state, optimizer state, step, best metric, and the full config. This makes \code{best.pt} and \code{latest.pt} sufficient to resume or audit a run. Evaluation writes Markdown and JSON metrics under \code{results/tables/} and qualitative media under \code{results/videos/}.
-
-\section{Mathematical Foundations}
-
-\subsection{Observation and Degradation Model}
-
-Let $\mathbf{y}_t\in[0,1]^{3\times H\times W}$ denote the high-resolution RGB frame at time $t$, and let $\mathbf{x}_t\in[0,1]^{3\times h\times w}$ denote the low-resolution observation. For the fixed scale factor $s=2$, the aligned ideal dimensions are $H=sh$ and $W=sw$. When LR frames are generated on the fly, the implemented degradation is bicubic interpolation:
-\begin{equation}
-\mathbf{x}_t=\mathcal{D}_s(\mathbf{y}_t)=\Bicubic(\mathbf{y}_t;\lfloor H/s\rfloor,\lfloor W/s\rfloor),
-\label{eq:bicubic_downsample}
-\end{equation}
-using PyTorch interpolation with \code{align\_corners=False}. Bicubic interpolation can be understood as separable cubic convolution \cite{keys1981cubic}: each output sample is a weighted combination of nearby input samples along horizontal and vertical axes. The implementation delegates the exact kernel behavior to PyTorch.
-
-The supervised learning problem is center-frame reconstruction from an odd temporal window:
-\begin{equation}
-\hat{\mathbf{y}}_c=f_\theta(\mathbf{x}_{c-r:c+r}),\quad T=2r+1.
-\label{eq:center_frame}
-\end{equation}
-The dataset restricts $c$ so all temporal neighbors exist during dataset evaluation. Runtime MP4 inference instead pads the boundary by replication.
-
-\subsection{Residual Convolutional Blocks}
-
-Both learned models use residual blocks:
-\begin{equation}
-\mathcal{R}(\mathbf{z})=\mathbf{z}+W_2\ast\sigma(W_1\ast\mathbf{z}+\mathbf{b}_1)+\mathbf{b}_2,
-\label{eq:residual_block}
-\end{equation}
-where $\ast$ is a 2D convolution and $\sigma$ is ReLU. Residual connections improve optimization by allowing the block to learn a correction relative to the identity mapping, a principle widely used in image restoration architectures such as EDSR \cite{lim2017edsr}.
-
-The single-frame baseline maps the center LR frame through:
-\begin{align}
-\mathbf{f}_0 &= H(\mathbf{x}_c),\\
-\mathbf{f} &= \mathbf{f}_0+B(\mathbf{f}_0),\\
-\hat{\mathbf{y}}_c &= U(\mathbf{f}),
-\end{align}
-where $H$ is the convolutional head, $B$ is a stack of residual blocks, and $U$ is the upsampling tail. The implementation has no bicubic residual skip; the network directly predicts RGB values.
-
-\subsection{BasicVSRMini Temporal Propagation}
-
-\input{figures/model_flow.tex}
-
-Figure~\ref{fig:model_flow} diagrams the tensor flow through \code{BasicVSRMini}. For a temporal window $\{\mathbf{x}_{c-r},\ldots,\mathbf{x}_{c+r}\}$, the model extracts per-frame features:
-\begin{equation}
-\mathbf{e}_t=E(\mathbf{x}_t),\qquad \mathbf{e}_t\in\mathbb{R}^{C\times h\times w}.
-\end{equation}
-It then runs two convolutional GRUs, one forward and one backward:
-\begin{align}
-\mathbf{h}^{\rightarrow}_t &= G_f(\mathbf{e}_t,\mathbf{h}^{\rightarrow}_{t-1}),\\
-\mathbf{h}^{\leftarrow}_t &= G_b(\mathbf{e}_t,\mathbf{h}^{\leftarrow}_{t+1}).
-\end{align}
-The cell itself follows the GRU gating structure \cite{cho2014gru}, with dense affine maps replaced by convolutions as shown in Eq.~\eqref{eq:convgru}. To avoid overloading the raw-frame notation, let $\mathbf{u}_t$ denote the feature input to a ConvGRU cell:
-\begin{align}
-\left[\mathbf{z}_t,\mathbf{r}_t\right]
-&=\sigma\left(W_{zr}\ast[\mathbf{u}_t,\mathbf{h}_{t-1}]+\mathbf{b}_{zr}\right),\\
-\tilde{\mathbf{h}}_t
-&=\tanh\left(W_h\ast[\mathbf{u}_t,\mathbf{r}_t\odot\mathbf{h}_{t-1}]+\mathbf{b}_h\right),\\
-\mathbf{h}_t
-&=(1-\mathbf{z}_t)\odot\mathbf{h}_{t-1}+\mathbf{z}_t\odot\tilde{\mathbf{h}}_t.
-\label{eq:convgru}
-\end{align}
-The update gate $\mathbf{z}_t$ controls how much new candidate state replaces old state; the reset gate $\mathbf{r}_t$ controls how much previous state participates in candidate formation. Because all gates are convolutional, spatial layout is preserved.
-
-At the center index $c$, the model concatenates the center feature and both propagated states:
-\begin{equation}
-\mathbf{g}_c=F\left([\mathbf{e}_c,\mathbf{h}^{\rightarrow}_c,\mathbf{h}^{\leftarrow}_c]\right),
-\end{equation}
-then reconstructs:
-\begin{equation}
-\hat{\mathbf{y}}_c=U(\mathbf{g}_c).
-\end{equation}
-This matches the propagation-and-aggregation intuition of BasicVSR \cite{chan2021basicvsr}, but not its full alignment machinery. There is no optical-flow warping before recurrence and no deformable alignment. Motion handling is therefore implicit in convolutional state dynamics.
-
-\subsection{PixelShuffle Reconstruction}
-
-The upsampling tail uses sub-pixel convolution \cite{shi2016pixelshuffle}. A convolution first produces $Cs^2$ channels at LR spatial resolution, then applies the rearrangement in Eq.~\eqref{eq:pixelshuffle}:
-\begin{equation}
-\mathbf{q}\in\mathbb{R}^{B\times Cs^2\times h\times w}.
-\end{equation}
-PixelShuffle rearranges channel groups into spatial positions:
-\begin{equation}
-\mathrm{PS}_s(\mathbf{q})_{b,c,s p+i,s r+j}
-=\mathbf{q}_{b,c s^2+i s+j,p,r},
-\quad 0\le i,j<s.
-\label{eq:pixelshuffle}
-\end{equation}
-The final convolution maps the upsampled feature tensor to three RGB channels.
-
-\subsection{Loss Functions}
-
-The base objective is mean absolute reconstruction error, given in Eq.~\eqref{eq:l1}:
-\begin{equation}
-\mathcal{L}_1(\theta)=\frac{1}{|\Omega|}\sum_{u\in\Omega}\left|f_\theta(\mathbf{x}_{c-r:c+r})_u-\mathbf{y}_{c,u}\right|,
-\label{eq:l1}
-\end{equation}
-where $\Omega$ indexes all pixels and channels in a batch. $L_1$ is common in restoration because it is less sensitive to outliers than $L_2$ and often produces sharper reconstructions.
-
-The full temporal config optionally adds the VGG16 feature loss in Eq.~\eqref{eq:perceptual} \cite{simonyan2015vgg,johnson2016perceptual}:
-\begin{equation}
-\mathcal{L}(\theta)=\mathcal{L}_1(\theta)+\lambda
-\left\|\Phi(f_\theta(\mathbf{x}_{c-r:c+r}))-\Phi(\mathbf{y}_c)\right\|_1.
-\label{eq:perceptual}
-\end{equation}
-\code{PerceptualLoss} uses torchvision VGG16 features through layer index 15, freezes their weights, and evaluates them in inference mode. If torchvision weights are unavailable, the implementation returns zero perceptual loss and prints a warning. This fallback improves portability but weakens strict reproducibility: a config requesting perceptual loss may fall back to $L_1$-only at runtime, and the warning can be missed in long logs.
-
-\subsection{Optimization}
-
-Training uses Adam \cite{kingma2015adam}. For gradient $\mathbf{g}_t=\nabla_\theta \mathcal{L}_t$, Adam maintains exponential moving averages:
-\begin{align}
-\mathbf{m}_t&=\beta_1\mathbf{m}_{t-1}+(1-\beta_1)\mathbf{g}_t,\\
-\mathbf{v}_t&=\beta_2\mathbf{v}_{t-1}+(1-\beta_2)\mathbf{g}_t^2,
-\end{align}
-applies bias correction:
-\begin{equation}
-\hat{\mathbf{m}}_t=\frac{\mathbf{m}_t}{1-\beta_1^t},\qquad
-\hat{\mathbf{v}}_t=\frac{\mathbf{v}_t}{1-\beta_2^t},
-\end{equation}
-and updates:
-\begin{equation}
-\theta_{t+1}=\theta_t-\alpha\frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t}+\epsilon}.
-\end{equation}
-The configs use learning rate $2\times10^{-4}$ and rely on PyTorch defaults for the remaining Adam hyperparameters.
-
-\subsection{Image Quality Metrics}
-
-For evaluation, predictions and targets are first clamped to $[0,1]$ and cropped by $s$ pixels on each border. The Y-channel conversion is:
-\begin{equation}
-Y=\frac{65.481R+128.553G+24.966B+16}{255}.
-\label{eq:y_channel}
-\end{equation}
-PSNR is computed with normalized peak value 1, as in Eq.~\eqref{eq:psnr}:
-\begin{equation}
-\mathrm{MSE}=\frac{1}{n}\sum_{i=1}^{n}(\hat{y}_i-y_i)^2,\qquad
-\PSNR=-10\log_{10}(\mathrm{MSE}).
-\label{eq:psnr}
-\end{equation}
-The implementation caps near-perfect MSE cases at 100 dB.
-
-SSIM compares local luminance, contrast, and structure \cite{wang2004ssim}. With Gaussian-window means $\mu_x,\mu_y$, variances $\sigma_x^2,\sigma_y^2$, covariance $\sigma_{xy}$, and constants $C_1=0.01^2$, $C_2=0.03^2$, the implemented expression is Eq.~\eqref{eq:ssim}:
-\begin{equation}
-\SSIM(x,y)=
-\frac{(2\mu_x\mu_y+C_1)(2\sigma_{xy}+C_2)}
-{(\mu_x^2+\mu_y^2+C_1)(\sigma_x^2+\sigma_y^2+C_2)}.
-\label{eq:ssim}
-\end{equation}
-The code uses an $11\times11$ Gaussian window with $\sigma=1.5$ and grouped convolution over channels.
-
-\subsection{Temporal Stability Metrics}
-
-The always-available temporal metric is global frame-difference energy:
-\begin{equation}
-E_\Delta=\frac{1}{M-1}\sum_{t=2}^{M}
-\frac{1}{CHW}\left\|\hat{\mathbf{y}}_t-\hat{\mathbf{y}}_{t-1}\right\|_1.
-\label{eq:diff_energy}
-\end{equation}
-Lower values indicate smaller average adjacent-frame changes, but this metric is not motion-compensated and may penalize legitimate motion.
-
-When OpenCV \cite{bradski2000opencv} is available, the repository also computes Farneb{\"a}ck dense optical flow \cite{farneback2003} between consecutive predicted frames and warps the current frame toward the previous frame:
-\begin{equation}
-\operatorname{tPSNR}=
-\frac{1}{M-1}\sum_{t=2}^{M}
-\PSNR\left(\operatorname{warp}(\hat{\mathbf{y}}_t,\mathbf{F}_{t-1\rightarrow t}),\hat{\mathbf{y}}_{t-1}\right).
-\label{eq:tpsnr}
-\end{equation}
-The implementation constructs remap coordinates from the previous-frame grid plus the estimated flow, so the formula should be read as an implementation-defined forward-flow sampling convention rather than as a general inverse-warp derivation. This is a stronger temporal stability signal than raw difference energy because it partially accounts for motion, but it inherits the failure modes of optical flow, especially around occlusions, low texture, reflections, and large displacement.
-
-\subsection{Computational Complexity}
-
-Let $A=hw$ denote LR spatial area, $C$ base channels, $s$ scale, $N$ reconstruction residual blocks, $T$ temporal frames, and $K=\max(1,\lfloor N/2\rfloor)$ feature-extractor residual blocks in \code{BasicVSRMini}. Counting convolution multiply-accumulates and ignoring activation/PixelShuffle overhead, the single-frame baseline has approximately:
-\begin{equation}
-P_{\mathrm{SISR}}=(18N+9s^2)C^2+(55+2N+s^2)C+3
-\end{equation}
-parameters and:
-\begin{equation}
-M_{\mathrm{SISR}}=A[(18N+9s^2)C^2+(27+27s^2)C]
-\end{equation}
-MACs.
-
-The temporal model has approximately:
-\begin{equation}
-P_{\mathrm{VSR}}=(18K+108+3+18N+9s^2)C^2+(62+2K+2N+s^2)C+3,
-\end{equation}
-where the $108C^2$ term comes from the two ConvGRU cells, and:
-\begin{equation}
-M_{\mathrm{VSR}}=A[T(18KC^2+27C)+108TC^2+3C^2+18NC^2+9s^2C^2+27s^2C].
-\end{equation}
-
-\begin{table}[t]
-\centering
-\caption{Configured model sizes and approximate compute scale. MAC estimates use LR crop dimensions implied by the HR crop and $s=2$.}
-\label{tab:model_scale}
-\small
-\begin{tabular}{lrrrr}
-\toprule
-Config & $C$ & Blocks & Parameters & Approx. training-crop MACs \\
-\midrule
-\code{single\_frame\_sr.toml} & 64 & 8 & 0.742M & 3.06G at LR $64\times64$ \\
-\code{temporal\_small.toml} & 48 & 6 & 0.716M & 9.08G at LR $64\times64$ \\
-\code{temporal\_full.toml} & 64 & 10 & 1.714M & 31.8G at LR $80\times80$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:model_scale} connects the symbolic complexity to the actual configs inspected in the repository.
-
-\section{Research Context and Derivation}
-
-\subsection{From Interpolation to Learned Super-Resolution}
-
-Bicubic interpolation is the baseline because it is deterministic, fast, and widely used in SR evaluation. It provides a useful lower-bound engineering reference: no training, negligible parameters, stable behavior, and low latency. Learned SR replaces fixed interpolation weights with data-driven nonlinear mappings. The single-frame baseline follows the residual CNN tradition of image restoration \cite{lim2017edsr}; its mathematical role is to estimate $p(\mathbf{y}_c\mid \mathbf{x}_c)$ or, more practically, a point estimate minimizing expected reconstruction loss.
-
-\subsection{From Single-Frame SR to Temporal SR}
-
-Video contains redundant information across time. If an object edge appears at slightly different sub-pixel positions across adjacent frames, a temporal model can integrate those observations to reconstruct detail that is ambiguous in any single frame. The ideal temporal estimator conditions on a window:
-\begin{equation}
-f_\theta^\star=\arg\min_f \mathbb{E}\left[\ell(f(\mathbf{x}_{c-r:c+r}),\mathbf{y}_c)\right].
-\end{equation}
-The challenge is alignment. Full VSR systems often estimate motion or use deformable alignment before aggregation \cite{wang2019edvr,chan2022basicvsrpp}. \project{} instead uses recurrent convolutional state to propagate information. This makes alignment implicit and local: the model can learn motion-tolerant filters, but has no explicit warping operator inside the network.
-
-\subsection{Relationship to BasicVSR}
-
-BasicVSR emphasizes propagation, alignment, aggregation, and upsampling \cite{chan2021basicvsr}. \code{BasicVSRMini} preserves propagation and aggregation in a simplified form:
-\begin{itemize}
-\item propagation: forward and backward ConvGRU recurrences;
-\item aggregation: concatenation of center feature, forward state, and backward state;
-\item upsampling: convolution plus PixelShuffle;
-\item omitted: optical-flow alignment, sequence-wide bidirectional output, and more advanced refinement.
-\end{itemize}
-Thus, the repo is best described as BasicVSR-style rather than BasicVSR-complete. This distinction is important for research claims and for explaining why quality may lag stronger VSR baselines.
-
-\subsection{Datasets and Protocol}
-
-Vimeo-90K was introduced with task-oriented flow for video enhancement tasks \cite{xue2019toflow}; REDS was introduced in the NTIRE 2019 restoration context \cite{nah2019reds}. \project{} uses Vimeo-style data for training and REDS-style validation/demo sequences for reporting. The repo's local Week 3 results explicitly state that their REDS-style validation set is generated from Vimeo for pipeline progression, not official REDS. This is a good engineering practice: it separates pipeline verification from benchmark claims.
-
-\section{Engineering Tradeoffs}
-
-\begin{table}[t]
-\centering
-\caption{Major design tradeoffs in the current implementation.}
-\label{tab:tradeoffs}
-\small
-\begin{tabular}{p{0.23\linewidth} p{0.33\linewidth} p{0.34\linewidth}}
-\toprule
-Decision & Benefit & Cost or risk \\
-\midrule
-Fixed $2\times$ scale & Simplifies configs, crops, metric border handling, and ONNX export. & Does not exercise arbitrary-scale SR or model-conditioned scale factors. \\
-Manifest-defined sequences & Reproducible split policy and scene-level control. & Requires directory layout discipline; bad manifests fail at dataset construction. \\
-On-the-fly bicubic LR & Reduces stored LR data and makes smoke runs easy. & Adds CPU/data-loader work and may differ from official degradation. \\
-Center-frame prediction & Simple target contract and metric handling. & Runtime windows overlap heavily; no sequence-wide output reuse. \\
-ConvGRU temporal propagation & Lightweight temporal context without explicit flow modules. & Limited motion alignment; hidden states remain LR-grid local. \\
-PixelShuffle upsampling & Efficient learned upsampling at LR compute cost. & Can produce checkerboard-like artifacts if training is poor. \\
-Default $L_1$ loss & Stable and easy to optimize. & May prefer averaged textures and does not directly enforce temporal consistency. \\
-Optional perceptual loss & Encourages feature-space similarity in full runs. & VGG availability fallback can reduce the objective to $L_1$-only if the warning is missed. \\
-Direct Python entry points & Easy to trace and modify. & Less scalable experiment management than Hydra/Lightning-style frameworks. \\
-Global diff-energy temporal metric & Always available and simple. & Confounds true motion with flicker; the top-level project README's low-texture fallback is not implemented. \\
-Farneb{\"a}ck tPSNR & Motion-compensated temporal signal without learned flow. & Depends on OpenCV and flow quality; omitted if \code{cv2} is unavailable. \\
-Deterministic cuDNN settings & Improves repeatability. & May reduce throughput on some GPUs. \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The tradeoffs in Table~\ref{tab:tradeoffs} are not hypothetical; each follows from a concrete code path or config choice in the current repository.
-
-\subsection{Scalability and Runtime}
-
-The temporal model is still small in parameter count, but compute grows linearly with temporal length $T$ and spatial area $A$. The largest config is only 1.714M parameters, yet its estimated crop compute is much higher than the single-frame baseline because it extracts features for five frames and runs two recurrent passes. Inference latency in Table~\ref{tab:week3_results} reflects this: the temporal model reports roughly 34.66 ms/frame versus 9.105 ms/frame for the single-frame fast-cycle model and 0.238 ms/frame for bicubic in that local setup.
-
-\subsection{Memory}
-
-During training, memory is dominated by stored activations for $T$ feature extractor passes, ConvGRU states, fusion residual blocks, and the upsampled output. Crop size is therefore a major lever. The full config uses batch size 2 and HR crop 160, while the small config uses batch size 4 and HR crop 128. This is a classic VSR tradeoff: larger crops improve spatial context but quickly increase activation memory.
-
-\subsection{Numerical Stability}
-
-Image tensors are normalized to $[0,1]$. Evaluation clamps predictions before metrics, which avoids invalid PSNR/SSIM values from out-of-range outputs. Training does not clamp before loss, preserving gradients outside the display range. PSNR guards near-zero MSE by returning 100 dB. SSIM uses constants $C_1$ and $C_2$ from the standard formulation, reducing division instability in low-variance windows.
-
-\subsection{Parallelization and GPU Considerations}
-
-The implementation uses PyTorch \cite{paszke2019pytorch}, data loaders, and ordinary GPU tensor execution. However, per-frame feature extraction is expressed as a Python list comprehension across $T$, and recurrent passes are Python loops. For $T=5$ this is acceptable; for larger temporal windows, batching the frame dimension through the feature extractor and improving export/runtime structure would matter. The data loader uses multiple workers and pinned memory, but on-the-fly bicubic downsampling may become a CPU bottleneck.
-
-\subsection{Failure Cases}
-
-Likely failure modes include large motion, occlusion, repeated textures, thin high-frequency structures, scene cuts inside temporal windows, incorrect LR/HR alignment, and mismatched degradation between train and validation data. The current model has no explicit scene-cut handling and no alignment module, so temporal windows containing inconsistent content can degrade the center prediction. The evaluation pipeline also assumes sorted filenames reflect temporal order.
-
-\section{End-to-End Example}
-
-A typical fast-cycle run begins with split and dataset verification, then training:
-\begin{verbatim}
-python train.py --config configs/temporal_small.toml \
-  --override '{"dataset":{"train_hr_root":"/path/to/vimeo/hr",
-  "val_hr_root":"/path/to/reds/hr","val_lr_root":"/path/to/reds/lr"}}'
-\end{verbatim}
-At startup, \code{train.py} loads the TOML config, applies the JSON override, seeds the process, builds \code{MultiFrameSRDataset} for train and validation, wraps them in data loaders, constructs \code{BasicVSRMini}, creates Adam, and starts the step loop. Every validation interval, it computes cropped PSNR/SSIM and updates \code{best.pt} when PSNR-Y improves.
-
-Evaluation can then be run explicitly:
-\begin{verbatim}
-python eval.py --config configs/temporal_small.toml \
-  --checkpoint results/runs/temporal_vsr_5f_small_2x/checkpoints/best.pt
-\end{verbatim}
-\code{eval.py} reads the validation manifest, builds one-sample batches, computes predictions, accumulates metrics, buckets outputs by sequence, computes temporal metrics, writes Markdown/JSON results, saves PNG image strips, and optionally creates MP4 comparisons for IDs in \code{data/splits/reds\_demo\_clips.txt}. Each strip contains four panels for the evaluated mode: nearest-neighbor LR-upsampled center frame, bicubic reference, current prediction, and HR target. It does not automatically combine bicubic, single-frame, and temporal predictions into the same strip unless those outputs are assembled separately.
-
-For runtime demonstration:
-\begin{verbatim}
-python demo_video.py --input input_lr.mp4 --output output_sr.mp4 \
-  --config configs/temporal_full.toml \
-  --checkpoint results/runs/temporal_vsr_5f_full_2x/checkpoints/best.pt
-\end{verbatim}
-The script reads the MP4, builds edge-padded windows, predicts one SR frame per LR frame, writes the output video, and reports milliseconds per frame. For export:
-\begin{verbatim}
-python export_onnx.py --config configs/temporal_full.toml \
-  --checkpoint results/runs/temporal_vsr_5f_full_2x/checkpoints/best.pt \
-  --output results/onnx/mini_dlss_temporal_full.onnx
-\end{verbatim}
-The model is exported with input name \code{lr\_frames} and output name \code{sr\_frame} using ONNX \cite{onnx2017}.
-
-\subsection{Results Snapshot}
-
-\begin{table}[t]
-\centering
-\caption{Existing Week 3 local REDS-style comparison. These numbers are useful pipeline evidence, but the repo marks this validation set as Vimeo-derived rather than official REDS.}
-\label{tab:week3_results}
-\small
-\begin{tabular}{lrrrrrr}
-\toprule
-Method & Params & PSNR-Y & SSIM-Y & tPSNR & Diff. energy & ms/frame \\
-\midrule
-Bicubic & 0.000M & 36.8033 & 0.9601 & 36.3441 & 0.0217 & 0.238 \\
-Single-frame SR fast cycle & 0.742M & 32.3755 & 0.8807 & 33.8817 & 0.0183 & 9.105 \\
-Temporal SR fast cycle, 600 steps & 0.716M & 29.2989 & 0.8532 & 37.6005 & 0.0134 & 34.660 \\
-Temporal SR extended local, 2000 steps & 0.716M & 33.5138 & 0.9247 & 37.6004 & 0.0175 & 34.660 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:week3_results} illustrates a useful engineering lesson. Early learned models can underperform bicubic in PSNR while improving or changing temporal metrics. The extended temporal run improves substantially over the fast temporal run but still trails bicubic on this local validation setup. This does not invalidate the pipeline; it shows why the repository's definition of done requires disciplined benchmark runs and why future work should include stronger training, official REDS validation, and ablations.
-
-\section{Theory-to-Implementation Mapping}
-
-\begin{table}[t]
-\centering
-\caption{Mapping from theoretical objects to implementation artifacts.}
-\label{tab:theory_mapping}
-\small
-\begin{tabular}{p{0.27\linewidth} p{0.30\linewidth} p{0.33\linewidth}}
-\toprule
-Theory object & Implementation & Notes \\
-\midrule
-HR frame $\mathbf{y}_t$ & \code{hr\_window[self.radius]} in \code{MultiFrameSRDataset} & Center frame target only. \\
-LR observation $\mathbf{x}_t$ & Loaded LR frame or bicubic downsampled HR frame & Generated via \code{F.interpolate(..., mode="bicubic")}. \\
-Temporal window $\mathbf{x}_{c-r:c+r}$ & \code{lr} tensor with shape $[T,3,h,w]$ & Batched to $[B,T,3,h,w]$. \\
-Estimator $f_\theta$ & \code{SingleFrameSR} or \code{BasicVSRMini} & Built by \code{build\_model}. \\
-Residual operator $\mathcal{R}$ & \code{ResidualBlock} & Two $3\times3$ convs plus identity skip. \\
-Bidirectional recurrence & \code{forward\_gru}, \code{backward\_gru} & ConvGRU states on LR grid. \\
-Upsampling operator $U$ & Conv + \code{PixelShuffle(scale)} + Conv & Learned RGB reconstruction. \\
-Objective $\mathcal{L}$ & $L_1$, optional VGG perceptual term & Perceptual term depends on torchvision/VGG availability. \\
-Optimizer & \code{torch.optim.Adam} & Learning rate from config. \\
-Image fidelity & \code{compute\_image\_metrics} & Border crop, Y-channel and RGB PSNR/SSIM. \\
-Temporal stability & \code{compute\_temporal\_metrics} & Global diff energy plus optional Farneb{\"a}ck tPSNR. \\
-Deployment graph & \code{torch.onnx.export} & Dynamic batch/spatial axes; fixed temporal window. \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:theory_mapping} is the strongest evidence that the repository is internally coherent. The mathematical formulation is not merely described in prose; every object has a concrete implementation counterpart. Where the implementation diverges from idealized VSR theory, the divergence is visible: alignment is implicit rather than flow-based, temporal loss is not used during training, and runtime windows are recomputed rather than streamed.
-
-\section{Conclusion}
-
-\project{} is a well-scoped educational and research engineering scaffold for temporal video super-resolution. Its strongest qualities are explicit data contracts, small and readable model definitions, reproducible configs, clear baselines, deterministic split handling, checkpointed training, metric reporting, qualitative artifacts, and a direct MP4/ONNX deployment path. It is technically deeper than a minimal SR demo because it includes temporal windows, bidirectional recurrent propagation, Y-channel evaluation, temporal metrics, and artifact discipline.
-
-The main weaknesses are also clear. The temporal model is BasicVSR-style but not BasicVSR-complete; it lacks explicit motion alignment, temporal training loss, sequence-wide output, and recurrent-state caching. The local results are pipeline evidence rather than official benchmark evidence. The fallback temporal metric described in the top-level project README is not exactly the one implemented. The perceptual loss fallback improves portability but can blur experiment semantics. Finally, the repository would benefit from automated tests around dataset indexing, metric formulas, checkpoint resume, ONNX export, and demo boundary windows.
-
-Future improvements should prioritize official REDS evaluation, ablations over temporal length and loss design, explicit temporal consistency losses, flow- or deformable-alignment modules, mixed precision, runtime feature/state caching, ONNX Runtime benchmarking, and stricter experiment validation. With those additions, \project{} could evolve from a compact VSR scaffold into a stronger comparative research platform.
-
-\bibliographystyle{IEEEtran}
-\bibliography{references}
+\bibitem{chan2021basicvsr}
+K. C. K. Chan, X. Wang, K. Yu, C. Dong, and C. C. Loy,
+``BasicVSR: The Search for Essential Components in Video
+Super-Resolution and Beyond,'' in \emph{CVPR}, 2021.
+
+\bibitem{chan2022basicvsrpp}
+K. C. K. Chan, S. Zhou, X. Xu, and C. C. Loy,
+``BasicVSR++: Improving Video Super-Resolution with Enhanced Propagation
+and Alignment,'' in \emph{CVPR Workshops}, 2022.
+
+\bibitem{wang2019edvr}
+X. Wang, K. C. K. Chan, K. Yu, C. Dong, and C. C. Loy,
+``EDVR: Video Restoration with Enhanced Deformable Convolutional
+Networks,'' in \emph{CVPR Workshops}, 2019.
+
+\bibitem{shi2016pixelshuffle}
+W. Shi et al.,
+``Real-Time Single Image and Video Super-Resolution Using an Efficient
+Sub-Pixel Convolutional Neural Network,'' in \emph{CVPR}, 2016.
+
+\bibitem{xue2019toflow}
+T. Xue, B. Chen, J. Wu, D. Wei, and W. T. Freeman,
+``Video Enhancement with Task-Oriented Flow,''
+\emph{International Journal of Computer Vision}, vol. 127, no. 8, 2019.
+
+\bibitem{wang2004ssim}
+Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli,
+``Image Quality Assessment: From Error Visibility to Structural
+Similarity,'' \emph{IEEE Transactions on Image Processing}, vol. 13,
+no. 4, 2004.
+
+\bibitem{farneback2003}
+G. Farneb\"ack,
+``Two-Frame Motion Estimation Based on Polynomial Expansion,'' in
+\emph{Image Analysis}, 2003.
+
+\bibitem{kingma2015adam}
+D. P. Kingma and J. Ba,
+``Adam: A Method for Stochastic Optimization,'' in \emph{ICLR}, 2015.
+
+\end{thebibliography}
 
 \end{document}

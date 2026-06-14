@@ -1,30 +1,23 @@
 # Mini-DLSS Technical Summary
 
-This folder contains a research-paper-style technical breakdown of the Mini-DLSS repository.
+This folder contains the concise technical summary and evaluation report for
+Mini-DLSS.
 
 ## Files
 
 - `summary.tex`: main LaTeX document.
-- `references.bib`: bibliography for papers, datasets, frameworks, and methods.
-- `figures/`: TikZ diagrams included by `summary.tex`.
-- `spellcheck_report.md`: secondary review report covering grammar, spelling, clarity, and consistency.
+- `summary.pdf`: compiled report.
+- `references.bib`: retained source bibliography from the earlier long-form report.
+- `figures/`: retained source diagrams from the earlier long-form report.
+- `spellcheck_report.md`: review notes for the current revision.
 
 ## Compile
 
-From this directory:
+The current document uses an inline bibliography and compiles with Tectonic:
 
 ```bash
-latexmk -pdf summary.tex
+tectonic -X compile summary.tex
 ```
 
-If `latexmk` is unavailable, run:
-
-```bash
-pdflatex summary.tex
-bibtex summary
-pdflatex summary.tex
-pdflatex summary.tex
-```
-
-The document uses TikZ figures and a BibTeX bibliography. A typical TeX Live or MacTeX installation should include the required packages.
-
+The report includes the final qualitative preview from `results/final/`, so
+compile it from inside the repository rather than copying `summary.tex` alone.
